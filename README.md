@@ -128,12 +128,9 @@ python Predict.py --data_dir <THE-ROOT-PATH-OF-THE-DATA> \
 ```  
 Please replace `<THE-SAVED-MODEL-NAME>` with the name of your trained model.
 
-Alternatively, our pretrained model is available at    
+Alternatively, our pretrained model is available at    [here](https://cloud.iarai.ac.at/index.php/s/CgbjDRK6B5KYaLE).
 
-```                                                                                        
-Node: tu-fat-4.lan.iarai.ac.at
-Path: /scratch/Land4Sense_Competition_h5/batch3500_F1_7396.pth
-```
+
 
 The generated prediction maps (in `h5` format) will then be saved in `./validation_map/`
 
