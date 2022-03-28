@@ -3,7 +3,7 @@
 ## Contents
 - [LandSlide4Sense 2022](#landslide4sense-2022)
 - [Globally Distributed Landslide Detection](#globally-distributed-landslide-detection)
-- [Challenge description](#challenge-description)
+- [Challenge Description](#challenge-description)
 - [Data Description](#data-description)
 - [Baseline Code](#baseline-code)
 - [Evaluation Metric](#evaluation-metric)
@@ -42,7 +42,6 @@ The winners **must submit** the working code, the learned parameters, and presen
 
 ## Data Description
 
-![Logo](/image/Data_figure.png?raw=true "landslide_detection")
 
 The Landslide4Sense dataset has three splits, training/validation/test, consisting of 3799, 245, and 800 image patches, respectively. Each image patch is a composite of 14 bands. The detailed information about the 14 bands is listed below:
 
@@ -89,6 +88,8 @@ Mapping classes used in the competition:
  :-: | :-: | :-:
 | 1 | Non-landslide | 0 |
 | 2 | Landslide | 1 |
+
+![Logo](/image/Data_figure.png?raw=true "landslide_detection")
 
 
 ## Baseline Code
