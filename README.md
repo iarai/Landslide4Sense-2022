@@ -23,7 +23,7 @@ Interested in automatically extracting landslide features from satellite imagery
 
 Landslides are a frequent phenomenon in many parts of the world, including thousands of small and medium-sized ground movements following earthquakes or severe weather events. In recent years, landslides have become even more damaging due to climate change, population growth, and unplanned urbanization in mountainous areas that are highly dynamic in terms of sedimentation and erosion. Early landslide detection and inventory mapping are critical for sending humanitarian aid and responding quickly to crises. In addition, accurate landslide detection to obtain spatial information about landslides, including their exact location and extent, is a prerequisite for further analysis, such as susceptibility modeling, risk, and vulnerability assessments. Therefore, in the wake of recent advances in computer vision as well as the increased availability of both imagery and computational resources, machine/deep learning models are taking off in landslide detection like other remote sensing fields. This competition seeks to help this development and challenges participants to detect landslides around the globe based on multisensor Earth observation images. The images are collected from diverse geographical regions offering an important resource for remote sensing, computer vision, and machine learning communities to support studies on landslide detection.
 
-## Challenge description
+## Challenge Description
 
 The aim of the challenge is to promote innovative algorithms for automatic landslide detection using remotely sensed images around the globe, as well as to provide objective and fair comparisons among different methods. The ranking is based on a quantitative accuracy metric (F1 score) computed with respect to undisclosed test samples. Participants will be given a limited time to submit their landslide detection results after the competition starts. The top three ranked participants will be announced as the winners.
 
@@ -40,7 +40,7 @@ This part only concerns the selected winners in Phase 2. Following the announcem
 The winners **must submit** the working code, the learned parameters, and present their work in the CDCEO workshop at IJCAI-ECAI 2022 proceedings to receive the prizes in accordance with the terms and conditions of the competition.
 
 
-## Landslide4Sense Data
+## Data Description
 
 ![Logo](/image/Data_figure.png?raw=true "landslide_detection")
 
