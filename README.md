@@ -31,7 +31,7 @@ We also seek to reward promising, innovative solution approaches and thus intend
 
 The competition will consist of two phases:
 
-**Phase 1 (April 1st - June 14th):** Participants are provided with training data (with labels) and additional validation images (without labels) to train and validate their methods. Participants can submit their landslide detection results for the validation set to the competition website to get feedback on the performance (Precision, Recall, and F1 score). The performance of the submission will be displayed on the online leaderboard. In addition, participants should submit a short description of the methodology (1-2 pages) [here](https://cloud.iarai.ac.at/index.php/s/sYQgdHryGMPQsHa) using the [CEUR](http://ceur-ws.org/) template.
+**Phase 1 (April 1st - June 14th):** Participants are provided with training data (with labels) and additional validation images (without labels) to train and validate their methods. Participants can submit their landslide detection results for the validation set to the competition website to get feedback on the performance (Precision, Recall, and F1 score). The performance of the submission will be displayed on the online leaderboard. In addition, participants should submit a short description of the methodology (1-2 pages) [here](https://cloud.iarai.ac.at/index.php/s/sYQgdHryGMPQsHa) using the [IJCAI](https://www.ijcai.org/authors_kit) LaTeX styles, and Word templates.
 
 **Phase 2 (June 15th - June 20th):** Participants receive the test data set (without labels) and must submit their landslide detection results within 5 days from the release of the test data set. The submissions during that week will be limited to 10 times and only the F1 score will be displayed on the online leaderboard. 
 
@@ -205,7 +205,7 @@ zip <THE-SUBMISSION-NAME>.zip ./*
 
 
 - **April 1st (Phase 1):** Contest opens. Release training and validation data. The validation leaderboard starts to receive submissions.
-- **June 12th (Phase 1):** Submit a short description of the methodology (1-2 pages) [here](https://cloud.iarai.ac.at/index.php/s/sYQgdHryGMPQsHa) using the [CEUR](http://ceur-ws.org/) template.
+- **June 12th (Phase 1):** Submit a short description of the methodology (1-2 pages) [here](https://cloud.iarai.ac.at/index.php/s/sYQgdHryGMPQsHa) using the [IJCAI](https://www.ijcai.org/authors_kit) LaTeX styles, and Word templates.
 - **June 15th (Phase 2):** Release test data. The validation leaderboard closes and the test leaderboard starts to receive submissions.
 - **June 20th (Phase 2):** The test leaderboard stops accepting submissions.
 - **June 25th:** Winner announcement. Invitations to present at the Special Competition Session at the CDCEO workshop.
