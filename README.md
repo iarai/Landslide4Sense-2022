@@ -128,7 +128,7 @@ python Predict.py --data_dir <THE-ROOT-PATH-OF-THE-DATA> \
 ```  
 Please replace `<THE-SAVED-MODEL-NAME>` with the name of your trained model.
 
-Alternatively, our pretrained model is available at    [here](https://cloud.iarai.ac.at/index.php/s/CgbjDRK6B5KYaLE).
+Alternatively, our **pretrained model** is available at    [here](https://cloud.iarai.ac.at/index.php/s/CgbjDRK6B5KYaLE).
 
 
 
