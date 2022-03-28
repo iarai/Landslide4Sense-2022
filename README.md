@@ -58,7 +58,6 @@ All bands in the Landslide4Sense dataset are resized to ~10m pixel size. The ima
 
 ![Logo](/image/Data_figure.png?raw=true "landslide_detection")
 
-
 The _Landslide4Sense_ dataset is structured as follows:
 ```
 ├── TrainData/
