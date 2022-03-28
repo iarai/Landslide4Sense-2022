@@ -50,16 +50,13 @@ The Landslide4Sense dataset has three splits, training/validation/test, consisti
 
 - **Slope data** from [ALOS PALSAR](https://www.usgs.gov/centers/eros/science/usgs-eros-archive-radar-alos-palsar-radar-processing-system): B13.       
 
-- **Digital elevation model (DEM)** from [ALOS PALSAR](https://www.usgs.gov/centers/eros/science/usgs-eros-archive-radar-alos-palsar-radar-processing-system): B14.
+- Digital elevation model (DEM)** from [ALOS PALSAR](https://www.usgs.gov/centers/eros/science/usgs-eros-archive-radar-alos-palsar-radar-processing-system): B14.
 
 All bands in the Landslide4Sense dataset are resized to ~10m pixel size. The image patches and their corresponding labels are 128 x 128 pixels.
 
-The data for training and validation are available at    
+**Download links:** [training](https://cloud.iarai.ac.at/index.php/s/KrwKngeXN7KjkFm) and [validation](https://cloud.iarai.ac.at/index.php/s/N6TacGsfr5nRNWr)   
 
-```                                                                                        
-Node: tu-fat-4.lan.iarai.ac.at
-Path: /scratch/Land4Sense_Competition_h5/
-```
+
 
 The _Landslide4Sense_ dataset is structured as follows:
 ```
