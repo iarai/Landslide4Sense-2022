@@ -98,7 +98,7 @@ Mapping classes used in the competition:
 
 This repository provides a simple baseline for the [_Landslide4Sense_](https://gitlab.lan.iarai.ac.at/land4seen/land4seen) competition based on the state-of-the-art DL model for semantic segmentation, implemented in PyTorch. It contains a customizable training script for [U-Net](https://arxiv.org/abs/1505.04597) along with the dataloader for reading the training and test samples (see `landslide_dataset.py` in the `dataset` folder).
 
-The provided code can be used to predict baseline results for **Track DLD** or as a comparison method for your solutions in **Track ILD**. Feel free to fork this repository for further use in your work!
+The provided code can be used to predict baseline results for the competition or as a comparison method for your solutions. Feel free to fork this repository for further use in your work!
 
 **Required packages and libraries:**
 
