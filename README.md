@@ -186,13 +186,13 @@ The submitted `ZIP` file in the test phase should be structured as follows:
 
 ## Awards and Prizes
 
-- First-ranked team: Voucher or cash prize worth 5,000 EUR to the participant/team and one free IJCAI-ECAI 2022 conference registration
+- First-ranked team: Voucher or cash prize worth **5,000 EUR** to the participant/team and one free IJCAI-ECAI 2022 conference registration
 
-- Second-ranked team: Voucher or cash prize worth 3,000 EUR to the participant/team and one free IJCAI-ECAI 2022 conference registration
+- Second-ranked team: Voucher or cash prize worth **3,000 EUR** to the participant/team and one free IJCAI-ECAI 2022 conference registration
 
-- Third-ranked team: Voucher or cash prize worth 2,000 EUR to the participant/team and one free IJCAI-ECAI 2022 conference registration
+- Third-ranked team: Voucher or cash prize worth **2,000 EUR** to the participant/team and one free IJCAI-ECAI 2022 conference registration
 
-- Also special prizes for more selected submissions.
+- Also **special prizes** for more selected submissions.
 
 
 
