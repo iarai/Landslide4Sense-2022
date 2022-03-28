@@ -205,7 +205,7 @@ zip <THE-SUBMISSION-NAME>.zip ./*
 
 
 - **April 1st (Phase 1):** Contest opens. Release training and validation data. The validation leaderboard starts to receive submissions.
-- **June 12th (Phase 1):** Submit a short description of the methodology (1-2 pages) to  https://cloud.iarai.ac.at/index.php/s/sYQgdHryGMPQsHa according to the IJCAI template.
+- **June 12th (Phase 1):** Submit a short description of the methodology (1-2 pages) [here](https://cloud.iarai.ac.at/index.php/s/sYQgdHryGMPQsHa) using the [CEUR](http://ceur-ws.org/) template.
 - **June 15th (Phase 2):** Release test data. The validation leaderboard closes and the test leaderboard starts to receive submissions.
 - **June 20th (Phase 2):** The test leaderboard stops accepting submissions.
 - **June 25th:** Winner announcement. Invitations to present at the Special Competition Session at the CDCEO workshop.
