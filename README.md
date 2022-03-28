@@ -145,7 +145,7 @@ The generated prediction maps (in `h5` format) will then be saved in `./test_map
 
 ## Evaluation Metric
 
-The F1 score of the landslide category is adopted as the evaluation metric in **Track DLD** for the leaderboard:
+The F1 score of the landslide category is adopted as the evaluation metric for the leaderboard:
 
 ![](https://latex.codecogs.com/svg.image?F_1=&space;2\cdot&space;\frac{precision\cdot&space;recall}{precision&plus;recall})
 
@@ -183,6 +183,11 @@ The submitted `ZIP` file in the test phase should be structured as follows:
     ├── mask_800.h5
 ```
 
+Sample command for the `ZIP` file generation:
+```
+cd ./validation_map
+zip <THE-SUBMISSION-NAME>.zip ./*
+```
 
 ## Awards and Prizes
 
