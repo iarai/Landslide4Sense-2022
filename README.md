@@ -56,6 +56,8 @@ All bands in the Landslide4Sense dataset are resized to ~10m pixel size. The ima
 **Download links:** [training](https://cloud.iarai.ac.at/index.php/s/KrwKngeXN7KjkFm) and [validation](https://cloud.iarai.ac.at/index.php/s/N6TacGsfr5nRNWr).   
 
 
+![Logo](/image/Data_figure.png?raw=true "landslide_detection")
+
 
 The _Landslide4Sense_ dataset is structured as follows:
 ```
@@ -88,8 +90,6 @@ Mapping classes used in the competition:
  :-: | :-: | :-:
 | 1 | Non-landslide | 0 |
 | 2 | Landslide | 1 |
-
-![Logo](/image/Data_figure.png?raw=true "landslide_detection")
 
 
 ## Baseline Code
