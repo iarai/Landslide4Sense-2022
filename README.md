@@ -16,7 +16,7 @@
 ## LandSlide4Sense 2022
 ![Logo](/image/Competition_figure.png?raw=true "landslide_detection")
 
-The Landslide4Sense competition, organized by [Institute of Advanced Research in Artificial Intelligence (IARAI)](https://www.iarai.ac.at/), aims to promote research in large-scale landslide detection from multi-source satellite remote sensing imagery. Landslide4Sense dataset has been derived from diverse landslide-affected areas around the world from 2015 through 2021. This benchmark dataset provides an important resource for remote sensing, computer vision, and machine learning communities to support studies on image classification and landslide detection studies.
+The [Landslide4Sense](https://www.iarai.ac.at/landslide4sense/) competition, organized by [Institute of Advanced Research in Artificial Intelligence (IARAI)](https://www.iarai.ac.at/), aims to promote research in large-scale landslide detection from multi-source satellite remote sensing imagery. Landslide4Sense dataset has been derived from diverse landslide-affected areas around the world from 2015 through 2021. This benchmark dataset provides an important resource for remote sensing, computer vision, and machine learning communities to support studies on image classification and landslide detection studies.
 Interested in automatically extracting landslide features from satellite imagery? Join us to help shape the first landslide detection competition.
 
 ## Globally Distributed Landslide Detection
@@ -93,7 +93,7 @@ Mapping classes used in the competition:
 
 ## Baseline Code
 
-This repository provides a simple baseline for the [_Landslide4Sense_](https://gitlab.lan.iarai.ac.at/land4seen/land4seen) competition based on the state-of-the-art DL model for semantic segmentation, implemented in PyTorch. It contains a customizable training script for [U-Net](https://arxiv.org/abs/1505.04597) along with the dataloader for reading the training and test samples (see `landslide_dataset.py` in the `dataset` folder).
+This repository provides a simple baseline for the [Landslide4Sense](https://www.iarai.ac.at/landslide4sense/) competition based on the state-of-the-art DL model for semantic segmentation, implemented in PyTorch. It contains a customizable training script for [U-Net](https://arxiv.org/abs/1505.04597) along with the dataloader for reading the training and test samples (see `landslide_dataset.py` in the `dataset` folder).
 
 The provided code can be used to predict baseline results for the competition or as a comparison method for your solutions. Feel free to fork this repository for further use in your work!
 
