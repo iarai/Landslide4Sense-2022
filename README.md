@@ -16,34 +16,35 @@
 ## LandSlide4Sense 2022
 ![Logo](/image/Competition_figure.png?raw=true "landslide_detection")
 
-The [Landslide4Sense](https://www.iarai.ac.at/landslide4sense/) competition, organized by [Institute of Advanced Research in Artificial Intelligence (IARAI)](https://www.iarai.ac.at/), aims to promote research in large-scale landslide detection from multi-source satellite remote sensing imagery. Landslide4Sense dataset has been derived from diverse landslide-affected areas around the world from 2015 through 2021. This benchmark dataset provides an important resource for remote sensing, computer vision, and machine learning communities to support studies on image classification and landslide detection studies.
-Interested in automatically extracting landslide features from satellite imagery? Join us to help shape the first landslide detection competition.
+The [Landslide4Sense](https://www.iarai.ac.at/landslide4sense/) competition, organized by [Institute of Advanced Research in Artificial Intelligence (IARAI)](https://www.iarai.ac.at/), aims to promote research in large-scale landslide detection from multi-source satellite remote sensing imagery. Landslide4Sense dataset has been derived from diverse landslide-affected areas around the world from 2015 through 2021. This benchmark dataset provides an important resource for remote sensing, computer vision, and machine learning communities to support studies on image classification and landslide detection.
+Interested in innovative algorithms for landslide detection using satellite imagery? Join us to help shape Landslide4Sense 2022!
 
 ## Globally Distributed Landslide Detection
 
-Landslides are a frequent phenomenon in many parts of the world, including thousands of small and medium-sized ground movements following earthquakes or severe weather events. In recent years, landslides have become even more damaging due to climate change, population growth, and unplanned urbanization in mountainous areas that are highly dynamic in terms of sedimentation and erosion. Early landslide detection and inventory mapping are critical for sending humanitarian aid and responding quickly to crises. In addition, accurate landslide detection to obtain spatial information about landslides, including their exact location and extent, is a prerequisite for further analysis, such as susceptibility modeling, risk, and vulnerability assessments. Therefore, in the wake of recent advances in computer vision as well as the increased availability of both imagery and computational resources, machine/deep learning models are taking off in landslide detection like other remote sensing fields. This competition seeks to help this development and challenges participants to detect landslides around the globe based on multisensor Earth observation images. The images are collected from diverse geographical regions offering an important resource for remote sensing, computer vision, and machine learning communities to support studies on landslide detection.
+Landslides are a natural phenomenon with devastating consequences, frequent in many parts of the world. Thousands of small and medium-sized ground movements follow earthquakes or heavy rain falls. Landslides have become more damaging in recent years due to climate change, population growth, and unplanned urbanization in unstable mountain areas. Early landslide detection is critical for quick response and management of the consequences. Accurate detection provides information on the landslide exact location and extent, which is necessary for landslide susceptibility modeling and risk assessment. 
+Recent advances in machine learning and computer vision combined with a growing availability of satellite imagery and computational resources have facilitated rapid progress in landslide detection. Landslide4Sense aims to promote research in this direction and challenges participants to detect landslides around the globe using multi-sensor satellite images. The images are collected from diverse geographical regions offering an important resource for remote sensing, computer vision, and machine learning communities. 
 
 ## Challenge Description
 
-The aim of the challenge is to promote innovative algorithms for automatic landslide detection using remotely sensed images around the globe, as well as to provide objective and fair comparisons among different methods. The ranking is based on a quantitative accuracy metric (F1 score) computed with respect to undisclosed test samples. Participants will be given a limited time to submit their landslide detection results after the competition starts. The top three ranked participants will be announced as the winners.
+The aim of the competition is to promote innovative algorithms for automatic landslide detection using remote sensing images around the globe, and to provide objective and fair comparisons among different methods. The competition ranking is based on a quantitative accuracy metric (F1 score) computed with respect to undisclosed test samples. Participants will be given a limited time to submit their landslide detection results after the competition starts. The winners will be selected from the top three solutions in the competition ranking.
 
-We also seek to reward promising, innovative solution approaches and thus intend to present special prizes to participants who provide such a solution regardless of the score they achieve. The award of these prizes is determined by the competition's scientific committee taking into account originality, innovation, generality and scalability.
+Special prizes will be awarded to creative and innovative solutions selected by the competition's scientific committee based on originality, generality, and scalability.
 
-The competition will consist of two phases:
+**The competition will consist of two phases:**
 
-**Phase 1 (April 1st - June 14th):** Participants are provided with training data (with labels) and additional validation images (without labels) to train and validate their methods. Participants can submit their landslide detection results for the validation set to the competition website to get feedback on the performance (Precision, Recall, and F1 score). The performance of the submission will be displayed on the online leaderboard. In addition, participants should submit a short description of the methodology (1-2 pages) [here](https://cloud.iarai.ac.at/index.php/s/sYQgdHryGMPQsHa) using the [IJCAI](https://www.ijcai.org/authors_kit) LaTeX styles, and Word templates.
+**Phase 1 (April 1 - June 14):** Participants are provided with training data (with labels) and additional validation images (without labels) to train and validate their methods. Participants can submit their landslide detection results for the validation set to the competition website to get feedback on the performance (Precision, Recall, and F1 score). The ranking of the submission will be displayed on the online leaderboard. In addition, participants should submit a short description of the methodology (1-2 pages) [here](https://cloud.iarai.ac.at/index.php/s/sYQgdHryGMPQsHa) using the [IJCAI](https://www.ijcai.org/authors_kit) LaTeX styles, and Word templates.
 
-**Phase 2 (June 15th - June 20th):** Participants receive the test data set (without labels) and must submit their landslide detection results within 5 days from the release of the test data set. The submissions during that week will be limited to 10 times and only the F1 score will be displayed on the online leaderboard. 
+**Phase 2 (June 15 - June 20):** Participants receive the test data set (without labels) and must submit their landslide detection results within 5 days from the release of the test data set. The submissions during that week will be limited to 10 times and only the F1 score will be displayed on the online leaderboard. 
 
-This part only concerns the selected winners in Phase 2. Following the announcement of the winners, they will have to write a 4-page IJCAI-style formatted manuscript that will be included in the CDCEO workshop. Each manuscript describes the addressed problem, the proposed method, and the experimental results. The winners will be asked to send a short pre-recorded video presentation. However, they should still be present for a live Question-and-Answer period with the audience and session chair.
+The winners of Phase 2 of the competition will be asked to write a 4-page IJCAI-style formatted manuscript that will be included in the CDCEO workshop. Each manuscript should describe the addressed problem, the proposed method, and the results. The winners will need to prepare a short pre-recorded video presentation for the workshop. The winners should also be present for a live Question-and-Answer period with the audience during the workshop.
 
-The winners **must submit** the working code, the learned parameters, and present their work in the CDCEO workshop at IJCAI-ECAI 2022 proceedings to receive the prizes in accordance with the terms and conditions of the competition.
+The winners **must** submit the working code, the learned parameters, and the manuscript, and present their work in the CDCEO workshop at IJCAI-ECAI 2022 to receive the prizes in accordance with the terms and conditions of the competition.
 
 
 ## Data Description
 
 
-The Landslide4Sense dataset has three splits, training/validation/test, consisting of 3799, 245, and 800 image patches, respectively. Each image patch is a composite of 14 bands. The detailed information about the 14 bands is listed below:
+The Landslide4Sense dataset has three splits, training/validation/test, consisting of 3799, 245, and 800 image patches, respectively. Each image patch is a composite of 14 bands that include:
 
 - **Multispectral data** from [Sentinel-2](https://sentinel.esa.int/web/sentinel/missions/sentinel-2): B1, B2, B3, B4, B5, B6, B7, B8, B9, B10, B11, B12.
 
@@ -51,7 +52,7 @@ The Landslide4Sense dataset has three splits, training/validation/test, consisti
 
 - **Digital elevation model (DEM)** from [ALOS PALSAR](https://www.usgs.gov/centers/eros/science/usgs-eros-archive-radar-alos-palsar-radar-processing-system): B14.
 
-All bands in the Landslide4Sense dataset are resized to ~10m pixel size. The image patches and their corresponding labels are 128 x 128 pixels.
+All bands in the competition dataset are resized to the resolution of ~10m per pixel. The image patches have the size of 128 x 128 pixels and are labeled pixel-wise.
 
 **Download links:** [training](https://cloud.iarai.ac.at/index.php/s/KrwKngeXN7KjkFm) and [validation](https://cloud.iarai.ac.at/index.php/s/N6TacGsfr5nRNWr).   
 
@@ -190,14 +191,14 @@ zip <THE-SUBMISSION-NAME>.zip ./*
 ```
 
 ## Awards and Prizes
-
+The winners of the competition will be selected from the top three ranked solutions and will be awarded the following prizes:
 - First-ranked team: Voucher or cash prize worth **5,000 EUR** to the participant/team and one free IJCAI-ECAI 2022 conference registration
 
 - Second-ranked team: Voucher or cash prize worth **3,000 EUR** to the participant/team and one free IJCAI-ECAI 2022 conference registration
 
 - Third-ranked team: Voucher or cash prize worth **2,000 EUR** to the participant/team and one free IJCAI-ECAI 2022 conference registration
 
-- Also **special prizes** for more selected submissions.
+- **Special prizes** will be awarded for creative and innovative solutions selected by the workshop's scientific committee.
 
 
 
