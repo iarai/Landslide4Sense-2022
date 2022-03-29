@@ -205,12 +205,12 @@ The winners of the competition will be selected from the top three ranked soluti
 ## Timeline 
 
 
-- **April 1st (Phase 1):** Contest opens. Release training and validation data. The validation leaderboard starts to receive submissions.
-- **June 12th (Phase 1):** Submit a short description of the methodology (1-2 pages) [here](https://cloud.iarai.ac.at/index.php/s/sYQgdHryGMPQsHa) using the [IJCAI](https://www.ijcai.org/authors_kit) LaTeX styles, and Word templates.
-- **June 15th (Phase 2):** Release test data. The validation leaderboard closes and the test leaderboard starts to receive submissions.
-- **June 20th (Phase 2):** The test leaderboard stops accepting submissions.
-- **June 25th:** Winner announcement. Invitations to present at the Special Competition Session at the CDCEO workshop.
-- **July 10th:** Full manuscript (4-pages, IJCAI formatted) submission deadline and pre-recorded presentation video deadline.
+- **April 1 (Phase 1):** Contest opens. Release training and validation data. The validation leaderboard starts to receive submissions.
+- **June 12 (Phase 1):** Submit a short description of the methodology (1-2 pages) [here](https://cloud.iarai.ac.at/index.php/s/sYQgdHryGMPQsHa) using the [IJCAI](https://www.ijcai.org/authors_kit) LaTeX styles, and Word templates.
+- **June 15 (Phase 2):** Release test data. The validation leaderboard closes and the test leaderboard starts to receive submissions.
+- **June 20 (Phase 2):** The test leaderboard stops accepting submissions.
+- **June 25:** Winner announcement. Invitations to present at the Special Competition Session at the CDCEO workshop.
+- **July 10:** Full manuscript (4-pages, IJCAI formatted) submission deadline and pre-recorded presentation video deadline.
 
 
 
