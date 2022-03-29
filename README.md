@@ -1,7 +1,7 @@
 # [Landslide4Sense](https://gitlab.lan.iarai.ac.at/land4seen/land4seen): Multi-sensor landslide detection competition & benchmark dataset
 
 ## Contents
-- [LandSlide4Sense 2022](#landslide4sense-2022)
+- [Landslide4Sense 2022](#landslide4sense-2022)
 - [Globally Distributed Landslide Detection](#globally-distributed-landslide-detection)
 - [Challenge Description](#challenge-description)
 - [Data Description](#data-description)
@@ -13,7 +13,7 @@
 - [Citation](#citation)
 
 
-## LandSlide4Sense 2022
+## Landslide4Sense 2022
 ![Logo](/image/Competition_figure.png?raw=true "landslide_detection")
 
 The [Landslide4Sense](https://www.iarai.ac.at/landslide4sense/) competition, organized by [Institute of Advanced Research in Artificial Intelligence (IARAI)](https://www.iarai.ac.at/), aims to promote research in large-scale landslide detection from multi-source satellite remote sensing imagery. Landslide4Sense dataset has been derived from diverse landslide-affected areas around the world from 2015 through 2021. This benchmark dataset provides an important resource for remote sensing, computer vision, and machine learning communities to support studies on image classification and landslide detection.
