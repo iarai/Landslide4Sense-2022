@@ -1,4 +1,4 @@
-# [Landslide4Sense](https://gitlab.lan.iarai.ac.at/land4seen/land4seen): Multi-sensor landslide detection competition & benchmark dataset
+# [Landslide4Sense](https://www.iarai.ac.at/landslide4sense/): Multi-sensor landslide detection competition & benchmark dataset
 
 ## Contents
 - [Landslide4Sense 2022](#landslide4sense-2022)
