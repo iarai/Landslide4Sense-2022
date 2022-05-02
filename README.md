@@ -10,6 +10,7 @@
 - [Submission Guide](#submission-guide)
 - [Awards and Prizes](#awards-and-prizes)
 - [Timeline](#timeline)
+- [Q&A](#frequently-asked-questions)
 - [Citation](#citation)
 
 
@@ -212,7 +213,29 @@ The winners of the competition will be selected from the top three ranked soluti
 - **June 25:** Winner announcement. Invitations to present at the Special Competition Session at the CDCEO workshop.
 - **July 10:** Full manuscript (4-pages, IJCAI formatted) submission deadline and pre-recorded presentation video deadline.
 
+## Frequently Asked Questions
+- **Q: What is the rule for registration in the competition?**  
+A: The valid participation is determined by the short abstract of the methodology (1-2 pages) where all members of your team should be clearly stated. In other words, only team members explicitly and clearly stated on the short abstract will be considered for the next phase of the competition, i.e. being eligible to be awarded as winners. Furthermore, no overlap among teams is allowed in the test phase of the competition, i.e. one person can only be a member of one team. Adding more team members after submitting the short abstract is not feasible.
 
+- **Q: Is there any limit on the number of submissions?**  
+A: In phase 1 (or the validation phase), there is no limit to the number of submissions but participants can have at most 10 results on the leaderboard. Participants can delete their existing submissions and resubmit new results to validate more trials.  
+In phase 2 (or the test phase), the number of submissions is strictly limited to 10, and participants will have no permission to delete their existing submissions.
+
+- **Q: Why does my submission raise an error?**  
+A: The most possible error for submission happens when participants zip the prediction files with the folder containing these files. To avoid this error, just zip the prediction files directly without a folder inside.
+
+- **Q: What are the 14 bands in the dataset?**  
+A: The Landslide4Sense dataset is a composite of 14 bands that include:  
+– Multispectral data from Sentinel-2: B1, B2, B3, B4, B5, B6, B7, B8, B9, B10, B11, B12.  
+– Slope data from ALOS PALSAR: B13.  
+– Digital elevation model (DEM) from ALOS PALSAR: B14.  
+Note that the band 8a in the Sentinel-2 image is omitted in the original data collection, so band 1 to 12 in the dataset corresponds to those 12 bands in Sentinel-2 data.
+
+- **Q: What are the coordinates and dates of acquisition of the data?**  
+A: The dataset is collected from different countries and regions all over the world (e.g., Japan and other countries or regions). The detailed geographic information and acquisition time will not be released at the current phase in case participants may directly look for the corresponding high-resolution images to check.
+
+- **Q: Why can’t I get access to the competition forum?**  
+A: To access the [competition forum](https://www.iarai.ac.at/landslide4sense/forums/), you need to first log in to the IARAI website.
 
 ## Citation
 Please cite the following paper if you use the data or the codes: 
