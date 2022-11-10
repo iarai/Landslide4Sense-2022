@@ -130,8 +130,8 @@ def main():
 
         if (batch_id + 1) % 10 == 0:
             print('Iter %d/%d Time: %.2f Batch_OA = %.1f cross_entropy_loss = %.3f' % (
-            batch_id + 1, args.num_steps, 10 * np.mean(hist[batch_id - 9:batch_id + 1, -1]),
-            np.mean(hist[batch_id - 9:batch_id + 1, 1]) * 100, np.mean(hist[batch_id - 9:batch_id + 1, 0])))
+                batch_id + 1, args.num_steps, 10 * np.mean(hist[batch_id - 9:batch_id + 1, -1]),
+                np.mean(hist[batch_id - 9:batch_id + 1, 1]) * 100, np.mean(hist[batch_id - 9:batch_id + 1, 0])))
 
         # evaluation per 500 iterations
         if (batch_id + 1) % 500 == 0:

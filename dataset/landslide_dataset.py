@@ -6,7 +6,7 @@ import h5py
 
 
 class LandslideDataSet(data.Dataset):
-    def __init__(self, data_dir, list_path, max_iters=None, set='label'):
+    def __init__(self, data_dir, list_path, max_iters=None, set='labeled'):
         self.list_path = list_path
         self.mean = [-0.4914, -0.3074, -0.1277, -0.0625, 0.0439, 0.0803, 0.0644, 0.0802, 0.3000, 0.4082, 0.0823, 0.0516,
                      0.3338, 0.7819]
@@ -80,7 +80,7 @@ class LandslideDataSet(data.Dataset):
 
 if __name__ == '__main__':
 
-    train_dataset = LandslideDataSet(data_dir='/scratch/Land4Sense_Competition/', list_path='./train.txt')
+    train_dataset = LandslideDataSet(data_dir='./data/TrainData/', list_path='./dataset/train.txt')
     train_loader = DataLoader(dataset=train_dataset, batch_size=1, shuffle=True, pin_memory=True)
 
     channels_sum, channel_squared_sum = 0, 0
