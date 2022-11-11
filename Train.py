@@ -16,7 +16,8 @@ epsilon = 1e-14
 
 
 def importName(modulename, name):
-    """ Import a named object from a module in the context of this function.
+    """
+    Import a named object from a module in the context of this function.
     """
     try:
         module = __import__(modulename, globals(), locals(), [name])
@@ -33,7 +34,7 @@ def get_arguments():
     parser.add_argument("--model_module", type=str, default='model.Networks',
                         help='model module to import')
     parser.add_argument("--model_name", type=str, default='unet',
-                        help='modle name in given module')
+                        help='model name in given module')
     parser.add_argument("--train_list", type=str, default='./dataset/train.txt',
                         help="training list file.")
     parser.add_argument("--test_list", type=str, default='./dataset/train.txt',
@@ -45,7 +46,7 @@ def get_arguments():
     parser.add_argument("--batch_size", type=int, default=32,
                         help="number of images in each batch.")
     parser.add_argument("--num_workers", type=int, default=4,
-                        help="number of workers for multithread dataloading.")
+                        help="number of workers for multithread data-loading.")
     parser.add_argument("--learning_rate", type=float, default=1e-3,
                         help="learning rate.")
     parser.add_argument("--num_steps", type=int, default=5000,
@@ -63,57 +64,100 @@ def get_arguments():
 
 
 def main():
+    # Namespace(batch_size=32, data_dir='data/TrainData/', gpu_id=0, input_size='128,128', learning_rate=0.001,
+    #           model_module='model.Networks', model_name='unet', num_classes=2, num_steps=5000, num_steps_stop=5000,
+    #           num_workers=4, snapshot_dir='./exp/', test_list='./dataset/train.txt', train_list='./dataset/train.txt',
+    #           weight_decay=0.0005)
+
     args = get_arguments()
+
+    # specify which GPU(s) to be used
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
+
+    # create snapshots directory
     snapshot_dir = args.snapshot_dir
-    if os.path.exists(snapshot_dir) == False:
+    if not os.path.exists(snapshot_dir):
         os.makedirs(snapshot_dir)
 
+    # get size of images (128, 128)
     w, h = map(int, args.input_size.split(','))
     input_size = (w, h)
 
+    # enables cudnn for some operations such as conv layers and RNNs, which can yield a significant speedup.
     cudnn.enabled = True
+
+    # set True to speed up constant image size inference
     cudnn.benchmark = True
 
-    # Create network   
-    model_import = importName(args.model_module, args.model_name)
-    model = model_import(n_classes=args.num_classes)
+    # Create network
+    model_import = importName(args.model_module, args.model_name)   # <class 'model.Networks.unet'>
+    model = model_import(n_classes=args.num_classes)    # return model structure
+
+    # model.train() tells your model that you are training the model. This helps inform layers such as Dropout
+    # and BatchNorm, which are designed to behave differently during training and evaluation. For instance,
+    # in training mode, BatchNorm updates a moving average on each new batch;
+    # whereas, for evaluation mode, these updates are frozen.
     model.train()
+
+    # send your model to the "current device"
     model = model.cuda()
 
-    src_loader = data.DataLoader(
-        LandslideDataSet(args.data_dir, args.train_list, max_iters=args.num_steps_stop * args.batch_size,
-                         set='labeled'),
-        batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=True)
+    # <torch.utils.data.dataloader.DataLoader object at 0x7fa2ff5af390>
+    src_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.train_list,
+                                                  max_iters=args.num_steps_stop * args.batch_size, set='labeled'),
+                                 batch_size=args.batch_size, shuffle=True,
+                                 num_workers=args.num_workers, pin_memory=True)
 
-    test_loader = data.DataLoader(
-        LandslideDataSet(args.data_dir, args.train_list, set='labeled'),
-        batch_size=1, shuffle=False, num_workers=args.num_workers, pin_memory=True)
+    # <torch.utils.data.dataloader.DataLoader object at 0x7f780a0537d0>
+    test_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.train_list, set='labeled'),
+                                  batch_size=1, shuffle=False, num_workers=args.num_workers, pin_memory=True)
 
     optimizer = optim.Adam(model.parameters(),
                            lr=args.learning_rate, weight_decay=args.weight_decay)
 
+    # resize picture
     interp = nn.Upsample(size=(input_size[1], input_size[0]), mode='bilinear')
 
+    # Dung de luu ket qua dat duoc qua num_steps_stop lan train: timem cross_entropy_loss_value, batch_oa
+    # Example: Time: 10.44 Batch_OA = 95.7 cross_entropy_loss = 0.329
     hist = np.zeros((args.num_steps_stop, 3))
+
+    # Dung de so sanh va luu cac trong so khi F1 > F1_best
     F1_best = 0.5
+
+    # computes the cross entropy loss between input logits and target. the dataset background label is 255,
+    # so we ignore the background when calculating the cross entropy
     cross_entropy_loss = nn.CrossEntropyLoss(ignore_index=255)
 
+    # batch_id: 0 -->  num_steps_stop
+    # src_data --> data
     for batch_id, src_data in enumerate(src_loader):
         if batch_id == args.num_steps_stop:
             break
+
         tem_time = time.time()
+
+        # send your model to the "current device"
         model.train()
+
+        # Sets gradients of all model parameters to zero.
+        # https://stackoverflow.com/questions/48001598/why-do-we-need-to-call-zero-grad-in-pytorch
         optimizer.zero_grad()
 
+        # src_data return: image, label, np.array(size)=[14, 128, 128], name="picture name"
         images, labels, _, _ = src_data
+
+        # Put the tensor in cuda
         images = images.cuda()
+
+        # This runs the image through the network and gets a prediction for the object in the image.
         pred = model(images)
 
+        # resize pred results to network's input size
         pred_interp = interp(pred)
 
         # CE Loss
-        labels = labels.cuda().long()
+        labels = labels.cuda().long()   # GPU tensor - torch.cuda.LongTensor
         cross_entropy_loss_value = cross_entropy_loss(pred_interp, labels)
         _, predict_labels = torch.max(pred_interp, 1)
         predict_labels = predict_labels.detach().cpu().numpy()
@@ -129,9 +173,9 @@ def main():
         hist[batch_id, -1] = time.time() - tem_time
 
         if (batch_id + 1) % 10 == 0:
-            print('Iter %d/%d Time: %.2f Batch_OA = %.1f cross_entropy_loss = %.3f' % (
-                batch_id + 1, args.num_steps, 10 * np.mean(hist[batch_id - 9:batch_id + 1, -1]),
-                np.mean(hist[batch_id - 9:batch_id + 1, 1]) * 100, np.mean(hist[batch_id - 9:batch_id + 1, 0])))
+            print('Iter %d/%d Time: %.2f Batch_OA = %.1f cross_entropy_loss = %.3f' %
+                  (batch_id + 1, args.num_steps, 10 * np.mean(hist[batch_id - 9:batch_id + 1, -1]),
+                   np.mean(hist[batch_id - 9:batch_id + 1, 1]) * 100, np.mean(hist[batch_id - 9:batch_id + 1, 0])))
 
         # evaluation per 500 iterations
         if (batch_id + 1) % 500 == 0:
@@ -167,16 +211,20 @@ def main():
                 P = TP_all[i] * 1.0 / (TP_all[i] + FP_all[i] + epsilon)
                 R = TP_all[i] * 1.0 / (TP_all[i] + FN_all[i] + epsilon)
                 F1[i] = 2.0 * P * R / (P + R + epsilon)
-                if i == 1:
-                    print('===>' + name_classes[i] + ' Precision: %.2f' % (P * 100))
-                    print('===>' + name_classes[i] + ' Recall: %.2f' % (R * 100))
-                    print('===>' + name_classes[i] + ' F1: %.2f' % (F1[i] * 100))
 
+                # for landslide
+                if i == 1:
+                    print('===>' + name_classes[i] + ' Precision for landslide: %.2f' % (P * 100))
+                    print('===>' + name_classes[i] + ' Recall for landslide: %.2f' % (R * 100))
+                    print('===>' + name_classes[i] + ' F1 for landslide: %.2f' % (F1[i] * 100))
+
+            # for both non-landslide and landslide
             mF1 = np.mean(F1)
-            print('===> mean F1: %.2f OA: %.2f' % (mF1 * 100, OA * 100))
+            print('===> mean F1 (both non-landslide and landslide: %.2f OA: %.2f' % (mF1 * 100, OA * 100))
 
             if F1[1] > F1_best:
-                F1_best = F1[1]
+                F1_best = F1[1]     # F1[1] --> calculate for landslide
+
                 # save the models        
                 print('Save Model')
                 model_name = 'batch' + repr(batch_id + 1) + '_F1_' + repr(int(F1[1] * 10000)) + '.pth'
