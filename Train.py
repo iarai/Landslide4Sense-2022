@@ -215,6 +215,7 @@ def main():
         # n_valid_sample_all = 0
         F1 = np.zeros((args.num_classes, 1))
         Acc = np.zeros((args.num_classes, 1))
+        Spec = np.zeros((args.num_classes, 1))
 
         for _, batch in enumerate(test_loader):
             image, label, _, name = batch
@@ -239,6 +240,7 @@ def main():
             P = TP_all[i] * 1.0 / (TP_all[i] + FP_all[i] + epsilon)
             R = TP_all[i] * 1.0 / (TP_all[i] + FN_all[i] + epsilon)
             Acc[i] = (TP_all[i] + TN_all[i]) / (TP_all[i] + TN_all[i] + FP_all[i] + FN_all[i])
+            Spec[i] = TN_all[i] / (TN_all[i] + FP_all[i])
             F1[i] = 2.0 * P * R / (P + R + epsilon)
             # if i == 1:
             #     print('===>' + name_classes[i] + ' Precision: %.2f' % (P * 100))
@@ -246,8 +248,8 @@ def main():
             #     print('===>' + name_classes[i] + ' F1: %.2f' % (F1[i] * 100))
 
         # mF1 = np.mean(F1)
-        print('===> Accuracy = %.2f Precision = %.2f Recall = %.2f F1 = %.2f' %
-              (np.mean(Acc) * 100, np.mean(P) * 100, np.mean(R) * 100, np.mean(F1) * 100))
+        print('===> Accuracy = %.2f Precision = %.2f Recall = %.2f Specificity = %.2f F1 = %.2f' %
+              (np.mean(Acc) * 100, np.mean(P) * 100, np.mean(R) * 100, np.mean(Spec) * 100, np.mean(F1) * 100))
 
 
 if __name__ == '__main__':
