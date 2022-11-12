@@ -63,9 +63,9 @@ def get_arguments():
                         help="number of workers for multithread data-loading.")
     parser.add_argument("--learning_rate", type=float, default=1e-3,
                         help="learning rate.")
-    parser.add_argument("--num_steps", type=int, default=10000,
+    parser.add_argument("--num_steps", type=int, default=5000,
                         help="number of training steps.")
-    parser.add_argument("--num_steps_stop", type=int, default=10000,
+    parser.add_argument("--num_steps_stop", type=int, default=5000,
                         help="number of training steps for early stopping.")
     parser.add_argument("--weight_decay", type=float, default=5e-4,
                         help="regularisation parameter for L2-loss.")
@@ -214,6 +214,7 @@ def main():
         FN_all = np.zeros((args.num_classes, 1))
         # n_valid_sample_all = 0
         F1 = np.zeros((args.num_classes, 1))
+        Acc = np.zeros((args.num_classes, 1))
 
         for _, batch in enumerate(test_loader):
             image, label, _, name = batch
@@ -237,6 +238,7 @@ def main():
         for i in range(args.num_classes):
             P = TP_all[i] * 1.0 / (TP_all[i] + FP_all[i] + epsilon)
             R = TP_all[i] * 1.0 / (TP_all[i] + FN_all[i] + epsilon)
+            Acc[i] = (TP_all[i] + TN_all[i]) / (TP_all[i] + TN_all[i] + FP_all[i] + FN_all[i])
             F1[i] = 2.0 * P * R / (P + R + epsilon)
             # if i == 1:
             #     print('===>' + name_classes[i] + ' Precision: %.2f' % (P * 100))
@@ -244,8 +246,8 @@ def main():
             #     print('===>' + name_classes[i] + ' F1: %.2f' % (F1[i] * 100))
 
         # mF1 = np.mean(F1)
-        print('===> Precision = %.2f Recall = %.2f F1 = %.2f' %
-              (np.mean(P) * 100), np.mean(R) * 100, np.mean(F1) * 100)
+        print('===> Accuracy = %.2f Precision = %.2f Recall = %.2f F1 = %.2f' %
+              (np.mean(Acc) * 100, np.mean(P) * 100, np.mean(R) * 100, np.mean(F1) * 100))
 
 
 if __name__ == '__main__':
