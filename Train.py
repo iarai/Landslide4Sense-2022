@@ -101,7 +101,7 @@ def main():
     cudnn.benchmark = True
 
     # Spliting k-fold
-    # kfold_split(num_fold=args.kfold, test_image_number=int(get_size_dataset()/args.kfold))
+    kfold_split(num_fold=args.kfold, test_image_number=int(get_size_dataset()/args.kfold))
 
     for fold in range(args.kfold):
         print("Training on Fold %d" % fold)
