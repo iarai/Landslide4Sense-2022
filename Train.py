@@ -243,7 +243,7 @@ def main():
                 # print('===> mean F1 (both non-landslide and landslide: %.2f OA: %.2f' % (mF1 * 100, OA * 100))
 
                 print(
-                    'Iter %d/%d Time: %.2f Batch_OA = %.1f cross_entropy_loss = %.3f, mP = %.2f, mR = %.2f, mF = %.2f, OA = %.2f' %
+                    'Iter %d/%d Time: %.2f Batch_OA = %.1f cross_entropy_loss = %.3f, mP = %.2f, mR = %.2f, mF1 = %.2f, OA = %.2f' %
                     (batch_id + 1, args.num_steps, 10 * np.mean(hist[batch_id - 9:batch_id + 1, -1]),
                      np.mean(hist[batch_id - 9:batch_id + 1, 1]) * 100, np.mean(hist[batch_id - 9:batch_id + 1, 0]),
                      mP * 100, mR * 100, mF1 * 100, OA * 100))
