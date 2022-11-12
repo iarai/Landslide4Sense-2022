@@ -205,6 +205,48 @@ def main():
                     train_loss_best = np.mean(hist[batch_id - 9:batch_id + 1, 0])
                     torch.save(model.state_dict(), os.path.join(snapshot_dir, 'model_weight.pth'))
 
+        # Later to restore:
+        model.load_state_dict(torch.load(os.path.join(snapshot_dir, 'model_weight.pth')))
+        model.eval()
+        TP_all = np.zeros((args.num_classes, 1))
+        FP_all = np.zeros((args.num_classes, 1))
+        TN_all = np.zeros((args.num_classes, 1))
+        FN_all = np.zeros((args.num_classes, 1))
+        # n_valid_sample_all = 0
+        F1 = np.zeros((args.num_classes, 1))
+
+        for _, batch in enumerate(test_loader):
+            image, label, _, name = batch
+            label = label.squeeze().numpy()
+            image = image.float().cuda()
+
+            with torch.no_grad():
+                pred = model(image)
+
+            _, pred = torch.max(interp(nn.functional.softmax(pred, dim=1)).detach(), 1)
+            pred = pred.squeeze().data.cpu().numpy()
+
+            TP, FP, TN, FN, _ = eval_image(pred.reshape(-1), label.reshape(-1), args.num_classes)
+            TP_all += TP
+            FP_all += FP
+            TN_all += TN
+            FN_all += FN
+            # n_valid_sample_all += n_valid_sample
+
+        # OA = np.sum(TP_all) * 1.0 / n_valid_sample_all
+        for i in range(args.num_classes):
+            P = TP_all[i] * 1.0 / (TP_all[i] + FP_all[i] + epsilon)
+            R = TP_all[i] * 1.0 / (TP_all[i] + FN_all[i] + epsilon)
+            F1[i] = 2.0 * P * R / (P + R + epsilon)
+            # if i == 1:
+            #     print('===>' + name_classes[i] + ' Precision: %.2f' % (P * 100))
+            #     print('===>' + name_classes[i] + ' Recall: %.2f' % (R * 100))
+            #     print('===>' + name_classes[i] + ' F1: %.2f' % (F1[i] * 100))
+
+        # mF1 = np.mean(F1)
+        print('===> Precision = %.2f Recall = %.2f F1 = %.2f' %
+              (np.mean(P) * 100), np.mean(R) * 100, np.mean(F1) * 100)
+
 
 if __name__ == '__main__':
     main()
