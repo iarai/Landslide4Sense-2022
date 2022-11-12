@@ -63,9 +63,9 @@ def get_arguments():
                         help="number of workers for multithread data-loading.")
     parser.add_argument("--learning_rate", type=float, default=1e-3,
                         help="learning rate.")
-    parser.add_argument("--num_steps", type=int, default=5000,
+    parser.add_argument("--num_steps", type=int, default=10000,
                         help="number of training steps.")
-    parser.add_argument("--num_steps_stop", type=int, default=5000,
+    parser.add_argument("--num_steps_stop", type=int, default=10000,
                         help="number of training steps for early stopping.")
     parser.add_argument("--weight_decay", type=float, default=5e-4,
                         help="regularisation parameter for L2-loss.")
@@ -148,7 +148,7 @@ def main():
         hist = np.zeros((args.num_steps_stop, 3))
 
         # Dung de so sanh va luu cac trong so khi F1 > F1_best
-        F1_best = 0.5
+        train_loss_best = 5.0
 
         # computes the cross entropy loss between input logits and target. the dataset background label is 255,
         # so we ignore the background when calculating the cross entropy
@@ -197,119 +197,13 @@ def main():
 
             hist[batch_id, -1] = time.time() - tem_time
 
-            if (batch_id + 1) % 10 == 0:
-                model.eval()
-                TP_all = np.zeros((args.num_classes, 1))
-                FP_all = np.zeros((args.num_classes, 1))
-                TN_all = np.zeros((args.num_classes, 1))
-                FN_all = np.zeros((args.num_classes, 1))
-                n_valid_sample_all = 0
-                F1 = np.zeros((args.num_classes, 1))
+            if (batch_id + 1) % 100 == 0:
+                print('Iter %d/%d Time: %.2f cross_entropy_loss = %.3f' % (batch_id + 1, args.num_steps,
+                      10 * np.mean(hist[batch_id - 9:batch_id + 1, -1]), np.mean(hist[batch_id - 9:batch_id + 1, 0])))
 
-                for _, batch in enumerate(test_loader):
-                    image, label, _, name = batch
-                    label = label.squeeze().numpy()
-                    image = image.float().cuda()
-
-                    with torch.no_grad():
-                        pred = model(image)
-
-                    _, pred = torch.max(interp(nn.functional.softmax(pred, dim=1)).detach(), 1)
-                    pred = pred.squeeze().data.cpu().numpy()
-
-                    TP, FP, TN, FN, n_valid_sample = eval_image(pred.reshape(-1), label.reshape(-1), args.num_classes)
-                    TP_all += TP
-                    FP_all += FP
-                    TN_all += TN
-                    FN_all += FN
-                    n_valid_sample_all += n_valid_sample
-
-                OA = np.sum(TP_all) * 1.0 / n_valid_sample_all
-                for i in range(args.num_classes):
-                    P = TP_all[i] * 1.0 / (TP_all[i] + FP_all[i] + epsilon)
-                    R = TP_all[i] * 1.0 / (TP_all[i] + FN_all[i] + epsilon)
-                    F1[i] = 2.0 * P * R / (P + R + epsilon)
-
-                    # # for landslide
-                    # if i == 1:
-                    #     print('===>' + name_classes[i] + ' Precision for landslide: %.2f' % (P * 100))
-                    #     print('===>' + name_classes[i] + ' Recall for landslide: %.2f' % (R * 100))
-                    #     print('===>' + name_classes[i] + ' F1 for landslide: %.2f' % (F1[i] * 100))
-
-                # for both non-landslide and landslide
-                mP = np.mean(P)
-                mR = np.mean(R)
-                mF1 = np.mean(F1)
-                # print('===> mean F1 (both non-landslide and landslide: %.2f OA: %.2f' % (mF1 * 100, OA * 100))
-
-                print(
-                    'Iter %d/%d Time: %.2f Batch_OA = %.1f cross_entropy_loss = %.3f, mP = %.2f, mR = %.2f, mF1 = %.2f, OA = %.2f' %
-                    (batch_id + 1, args.num_steps, 10 * np.mean(hist[batch_id - 9:batch_id + 1, -1]),
-                     np.mean(hist[batch_id - 9:batch_id + 1, 1]) * 100, np.mean(hist[batch_id - 9:batch_id + 1, 0]),
-                     mP * 100, mR * 100, mF1 * 100, OA * 100))
-
-                if F1[1] > F1_best:
-                    F1_best = F1[1]  # F1[1] --> calculate for landslide
-
-                    # save the models
-                    print('Save Model')
-                    model_name = 'batch' + repr(batch_id + 1) + '_F1_' + repr(int(F1[1] * 10000)) + '.pth'
-                    torch.save(model.state_dict(), os.path.join(
-                        snapshot_dir, model_name))
-
-            # # evaluation per 500 iterations
-            # if (batch_id + 1) % 500 == 0:
-            #     print('Testing..........')
-            #     model.eval()
-            #     TP_all = np.zeros((args.num_classes, 1))
-            #     FP_all = np.zeros((args.num_classes, 1))
-            #     TN_all = np.zeros((args.num_classes, 1))
-            #     FN_all = np.zeros((args.num_classes, 1))
-            #     n_valid_sample_all = 0
-            #     F1 = np.zeros((args.num_classes, 1))
-
-            #     for _, batch in enumerate(test_loader):
-            #         image, label, _, name = batch
-            #         label = label.squeeze().numpy()
-            #         image = image.float().cuda()
-
-            #         with torch.no_grad():
-            #             pred = model(image)
-
-            #         _, pred = torch.max(interp(nn.functional.softmax(pred, dim=1)).detach(), 1)
-            #         pred = pred.squeeze().data.cpu().numpy()
-
-            #         TP, FP, TN, FN, n_valid_sample = eval_image(pred.reshape(-1), label.reshape(-1), args.num_classes)
-            #         TP_all += TP
-            #         FP_all += FP
-            #         TN_all += TN
-            #         FN_all += FN
-            #         n_valid_sample_all += n_valid_sample
-
-            #     OA = np.sum(TP_all) * 1.0 / n_valid_sample_all
-            #     for i in range(args.num_classes):
-            #         P = TP_all[i] * 1.0 / (TP_all[i] + FP_all[i] + epsilon)
-            #         R = TP_all[i] * 1.0 / (TP_all[i] + FN_all[i] + epsilon)
-            #         F1[i] = 2.0 * P * R / (P + R + epsilon)
-
-            #         # for landslide
-            #         if i == 1:
-            #             print('===>' + name_classes[i] + ' Precision for landslide: %.2f' % (P * 100))
-            #             print('===>' + name_classes[i] + ' Recall for landslide: %.2f' % (R * 100))
-            #             print('===>' + name_classes[i] + ' F1 for landslide: %.2f' % (F1[i] * 100))
-
-            #     # for both non-landslide and landslide
-            #     mF1 = np.mean(F1)
-            #     print('===> mean F1 (both non-landslide and landslide: %.2f OA: %.2f' % (mF1 * 100, OA * 100))
-
-            #     if F1[1] > F1_best:
-            #         F1_best = F1[1]     # F1[1] --> calculate for landslide
-
-            #         # save the models
-            #         print('Save Model')
-            #         model_name = 'batch' + repr(batch_id + 1) + '_F1_' + repr(int(F1[1] * 10000)) + '.pth'
-            #         torch.save(model.state_dict(), os.path.join(
-            #             snapshot_dir, model_name))
+                if np.mean(hist[batch_id - 9:batch_id + 1, 0]) < train_loss_best:
+                    train_loss_best = np.mean(hist[batch_id - 9:batch_id + 1, 0])
+                    torch.save(model.state_dict(), os.path.join(snapshot_dir, 'model_weight.pth'))
 
 
 if __name__ == '__main__':
