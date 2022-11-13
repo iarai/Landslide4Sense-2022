@@ -81,7 +81,7 @@ def get_arguments():
 def main():
     # Namespace(batch_size=32, data_dir='data/', gpu_id=0, input_size='128,128', learning_rate=0.001,
     #           model_module='model.Networks', model_name='unet', num_classes=2, num_steps=5000, num_steps_stop=5000,
-    #           num_workers=4, snapshot_dir='./exp/', test_list='./dataset/train.txt', train_list='./dataset/train.txt',
+    #           num_workers=4, snapshot_dir='./exp/', test_list='./dataset/test.txt', train_list='./dataset/train.txt',
     #           weight_decay=0.0005)
 
     args = get_arguments()
@@ -99,7 +99,7 @@ def main():
     # set True to speed up constant image size inference
     cudnn.benchmark = True
 
-    # Spliting k-fold
+    # Splitting k-fold
     kfold_split(num_fold=args.kfold, test_image_number=int(get_size_dataset() / args.kfold))
 
     # Create network
