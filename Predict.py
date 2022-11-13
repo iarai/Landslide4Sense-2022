@@ -1,11 +1,9 @@
 import argparse
-import numpy as np
 import os
 import torch
 import torch.nn as nn
 from torch.utils import data
 import torch.backends.cudnn as cudnn
-from utils.tools import *
 from dataset.landslide_dataset import LandslideDataSet
 from model.Networks import unet
 import h5py
@@ -55,7 +53,7 @@ def main():
     args = get_arguments()
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
     snapshot_dir = args.snapshot_dir
-    if os.path.exists(snapshot_dir) == False:
+    if not os.path.exists(snapshot_dir):
         os.makedirs(snapshot_dir)
 
     w, h = map(int, args.input_size.split(','))

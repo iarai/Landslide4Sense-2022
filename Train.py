@@ -1,5 +1,4 @@
 import argparse
-import numpy as np
 import time
 import os
 import copy as cp
@@ -10,13 +9,7 @@ from torch.utils import data
 import torch.backends.cudnn as cudnn
 from utils.tools import *
 from dataset.landslide_dataset import LandslideDataSet
-import importlib
 from dataset.kfold import get_train_test_list, kfold_split
-
-from sklearn.metrics import confusion_matrix
-import matplotlib.pyplot as plt
-import seaborn as sns
-import itertools
 
 name_classes = ['Non-Landslide', 'Landslide']
 epsilon = 1e-14
@@ -207,10 +200,10 @@ def main():
             hist[batch_id, -1] = time.time() - tem_time
 
             if (batch_id + 1) % 100 == 0:
-                print('Iter %d/%d Time: %.2f cross_entropy_loss = %.3f' % (batch_id + 1, args.num_steps,
-                                                                           10 * np.mean(
-                                                                               hist[batch_id - 9:batch_id + 1, -1]),
-                                                                           np.mean(hist[batch_id - 9:batch_id + 1, 0])))
+                print('Iter %d/%d Time: %.2f cross_entropy_loss = %.3f' %
+                      (batch_id + 1, args.num_steps,
+                       10 * np.mean(hist[batch_id - 9:batch_id + 1, -1]),
+                       np.mean(hist[batch_id - 9:batch_id + 1, 0])))
 
                 if np.mean(hist[batch_id - 9:batch_id + 1, 0]) < train_loss_best:
                     train_loss_best = np.mean(hist[batch_id - 9:batch_id + 1, 0])
@@ -230,9 +223,6 @@ def main():
         Acc = np.zeros((args.num_classes, 1))
         Spec = np.zeros((args.num_classes, 1))
 
-        # y_true_all = []
-        # y_pred_all = []
-
         for _, batch in enumerate(test_loader):
             image, label, _, name = batch
             label = label.squeeze().numpy()
@@ -247,15 +237,12 @@ def main():
             # Return TP, FP, TN, FN for each batch
             TP, FP, TN, FN, _ = eval_image(pred.reshape(-1), label.reshape(-1), args.num_classes)
 
-            # Calculating for all of batch
+            # Return for all of batch
             TP_all += TP
             FP_all += FP
             TN_all += TN
             FN_all += FN
             # n_valid_sample_all += n_valid_sample
-
-            # y_true_all.extend(label.reshape(-1))
-            # y_pred_all.extend(pred.reshape(-1))
 
         # OA = np.sum(TP_all) * 1.0 / n_valid_sample_all
         for i in range(args.num_classes):
@@ -265,25 +252,24 @@ def main():
             Spec[i] = TN_all[i] / (TN_all[i] + FP_all[i])
             F1[i] = 2.0 * P[i] * R[i] / (P[i] + R[i] + epsilon)
             # if i == 1:
-            # print('===>' + name_classes[i] + ' Precision: %.2f' % (P * 100))
-            # print('===>' + name_classes[i] + ' Recall: %.2f' % (R * 100))
-            # print('===>' + name_classes[i] + ' F1: %.2f' % (F1[i] * 100))
+            #     print('===>' + name_classes[i] + ' Precision: %.2f' % (P * 100))
+            #     print('===>' + name_classes[i] + ' Recall: %.2f' % (R * 100))
+            #     print('===>' + name_classes[i] + ' F1: %.2f' % (F1[i] * 100))
 
-        print('===> Non-Acc = %.2f Non-Pre = %.2f Non-Rec = %.2f Non-Spec = %.2f Non-F1 = %.2f Non-TP = %d Non-TN = %d Non-FP = %d Non-FN = %d' %
-              (Acc[0] * 100, P[0] * 100, R[0] * 100, Spec[0] * 100, F1[0] * 100, TP_all[0], TN_all[0], FP_all[0], FN_all[0]))
+        print(
+            '===> Non-Acc = %.2f Non-Pre = %.2f Non-Rec = %.2f Non-Spec = %.2f Non-F1 = %.2f Non-TP = %d '
+            'Non-TN = %d Non-FP = %d Non-FN = %d' %
+            (Acc[0] * 100, P[0] * 100, R[0] * 100, Spec[0] * 100, F1[0] * 100, TP_all[0], TN_all[0], FP_all[0],
+             FN_all[0]))
 
-        print('===> Land-Acc = %.2f Land-Pre = %.2f Land-Rec = %.2f Land-Spec = %.2f Land-F1 = %.2f Land-TP = %d Land-TN = %d Land-FP = %d Land-FN = %d' %
-              (Acc[1] * 100, P[1] * 100, R[1] * 100, Spec[1] * 100, F1[1] * 100, TP_all[1], TN_all[1], FP_all[1], FN_all[1]))
+        print(
+            '===> Land-Acc = %.2f Land-Pre = %.2f Land-Rec = %.2f Land-Spec = %.2f Land-F1 = %.2f Land-TP = %d '
+            'Land-TN = %d Land-FP = %d Land-FN = %d' %
+            (Acc[1] * 100, P[1] * 100, R[1] * 100, Spec[1] * 100, F1[1] * 100, TP_all[1], TN_all[1], FP_all[1],
+             FN_all[1]))
 
         print('===> Mean-Acc = %.2f Mean-Pre = %.2f Mean-Rec = %.2f Mean-Spec = %.2f Mean-F1 = %.2f' %
               (np.mean(Acc) * 100, np.mean(P) * 100, np.mean(R) * 100, np.mean(Spec) * 100, np.mean(F1) * 100))
-
-        # cm = confusion_matrix([int(x) for x in y_true_all], [int(x) for x in y_pred_all], labels=name_classes)
-        # plt.figure(figsize=(12.8, 6))
-        # sns.heatmap(cm, annot=True, xticklabels=name_classes, yticklabels=name_classes, cmap="Blues", fmt="g")
-        # plt.xlabel('Predicted')
-        # plt.ylabel('Actual')
-        # plt.title('Confusion Matrix')
 
 
 if __name__ == '__main__':

@@ -15,7 +15,7 @@ class LandslideDataSet(data.Dataset):
         self.set = set
         self.img_ids = [i_id.strip() for i_id in open(list_path)]
 
-        if not max_iters == None:
+        if not max_iters is None:
             n_repeat = int(np.ceil(max_iters / len(self.img_ids)))
             self.img_ids = self.img_ids * n_repeat + self.img_ids[:max_iters - n_repeat * len(self.img_ids)]
 
@@ -79,7 +79,6 @@ class LandslideDataSet(data.Dataset):
 
 
 if __name__ == '__main__':
-
     train_dataset = LandslideDataSet(data_dir='./data/TrainData/', list_path='./dataset/train.txt')
     train_loader = DataLoader(dataset=train_dataset, batch_size=1, shuffle=True, pin_memory=True)
 

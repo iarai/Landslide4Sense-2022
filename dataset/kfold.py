@@ -6,7 +6,7 @@ import numpy as np
 
 
 def kfold_split(num_fold=10, test_image_number=380):
-    print("Spliting for k-fold with %d fold" % num_fold)
+    print("Splitting for k-fold with %d fold" % num_fold)
     data_root = os.path.join(os.getcwd(), 'data')
 
     dir_names = []
@@ -81,7 +81,7 @@ def get_train_list(fold):
         image = os.path.join("TrainData" + str(fold) + "/train/img/", str(image[4]))
         all_train_files.append(image)
 
-        # Create Test.txt
+    # Create train.txt
     with open("dataset/train.txt", "w") as f:
         for idx in np.arange(len(all_train_files)):
             f.write(all_train_files[idx] + '\n')
@@ -99,7 +99,7 @@ def get_test_list(fold):
         image = os.path.join("TrainData" + str(fold) + "/test/img/", str(image[4]))
         all_test_files.append(image)
 
-        # Create Test.txt
+    # Create Test.txt
     with open("dataset/test.txt", "w") as f:
         for idx in np.arange(len(all_test_files)):
             f.write(all_test_files[idx] + '\n')
