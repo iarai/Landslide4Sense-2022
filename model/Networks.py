@@ -68,8 +68,8 @@ class _DenseBlock(nn.ModuleDict):
 
 
 class DenseNet(nn.Module):
-    def __init__(self, n_channels=14, growth_rate=8, block_config=(6, 4, 6, 0), num_init_features=166, bn_size=4, drop_rate=0,
-                 n_classes=1000, memory_efficient=False):
+    def __init__(self, n_channels=14, growth_rate=8, block_config=(6, 4, 6, 0), num_init_features=16, bn_size=4,
+                 drop_rate=0, n_classes=2, memory_efficient=False):
 
         super(DenseNet, self).__init__()
 
