@@ -68,9 +68,9 @@ def get_arguments():
                         help="number of workers for multithread data-loading.")
     parser.add_argument("--learning_rate", type=float, default=1e-3,
                         help="learning rate.")
-    parser.add_argument("--num_steps", type=int, default=100,
+    parser.add_argument("--num_steps", type=int, default=5000,
                         help="number of training steps.")
-    parser.add_argument("--num_steps_stop", type=int, default=100,
+    parser.add_argument("--num_steps_stop", type=int, default=5000,
                         help="number of training steps for early stopping.")
     parser.add_argument("--weight_decay", type=float, default=5e-4,
                         help="regularisation parameter for L2-loss.")
@@ -106,11 +106,19 @@ def main():
     cudnn.benchmark = True
 
     # Spliting k-fold
-    # kfold_split(num_fold=args.kfold, test_image_number=int(get_size_dataset() / args.kfold))
+    kfold_split(num_fold=args.kfold, test_image_number=int(get_size_dataset() / args.kfold))
 
     # Create network
     model_import = importName(args.model_module, args.model_name)  # <class 'model.Networks.unet'>
     model = model_import(n_classes=args.num_classes)  # return model structure
+
+    actual_classes = np.empty([0], dtype=int)
+    predicted_classes = np.empty([0], dtype=int)
+    Pre_classes = []
+    Rec_classes = []
+    F1_classes = []
+    Acc_classes = []
+    Spec_classes = []
 
     for fold in range(args.kfold):
         print("Training on Fold %d" % fold)
@@ -256,8 +264,11 @@ def main():
             y_true_all.append(label.reshape(-1))
             y_pred_all.append(pred.reshape(-1))
 
-        y_true_all = np.concatenate(y_true_all).tolist()
-        y_pred_all = np.concatenate(y_pred_all).tolist()
+        # y_true_all = np.concatenate(y_true_all).tolist()
+        # y_pred_all = np.concatenate(y_pred_all).tolist()
+
+        actual_classes = np.append(actual_classes, np.concatenate(y_true_all).tolist())
+        predicted_classes = np.append(predicted_classes, np.concatenate(y_pred_all).tolist())
 
         # OA = np.sum(TP_all) * 1.0 / n_valid_sample_all
         for i in range(args.num_classes):
@@ -271,23 +282,64 @@ def main():
             # print('===>' + name_classes[i] + ' Recall: %.2f' % (R * 100))
             # print('===>' + name_classes[i] + ' F1: %.2f' % (F1[i] * 100))
 
-        print('===> Non-Acc = %.2f Non-Pre = %.2f Non-Rec = %.2f Non-Spec = %.2f Non-F1 = %.2f Non-TP = %d Non-TN = %d Non-FP = %d Non-FN = %d' %
-              (Acc[0] * 100, P[0] * 100, R[0] * 100, Spec[0] * 100, F1[0] * 100, TP_all[0], TN_all[0], FP_all[0], FN_all[0]))
+        Pre_classes = np.append(Pre_classes, P)
+        Rec_classes = np.append(Rec_classes, R)
+        F1_classes = np.append(F1_classes, F1)
+        Acc_classes = np.append(Acc_classes, Acc)
+        Spec_classes = np.append(Spec_classes, Spec)
 
-        print('===> Land-Acc = %.2f Land-Pre = %.2f Land-Rec = %.2f Land-Spec = %.2f Land-F1 = %.2f Land-TP = %d Land-TN = %d Land-FP = %d Land-FN = %d' %
-              (Acc[1] * 100, P[1] * 100, R[1] * 100, Spec[1] * 100, F1[1] * 100, TP_all[1], TN_all[1], FP_all[1], FN_all[1]))
+        print('----------------------------- For per fold ----------------------------------------')
 
-        print('===> Mean-Acc = %.2f Mean-Pre = %.2f Mean-Rec = %.2f Mean-Spec = %.2f Mean-F1 = %.2f' %
+        print(
+            '===> Non-Landslide [Acc, Pre, Rec, Spec, F1, TP, TN, FP, FN] = [%.2f, %.2f, %.2f, %.2f, %.2f, %d, %d, %d, %d]' %
+            (Acc[0] * 100, P[0] * 100, R[0] * 100, Spec[0] * 100, F1[0] * 100, TP_all[0], TN_all[0], FP_all[0],
+             FN_all[0]))
+
+        print(
+            '===> Landslide [Acc, Pre, Rec, Spec, F1, TP, TN, FP, FN] = [%.2f, %.2f, %.2f, %.2f, %.2f, %d, %d, %d, %d]' %
+            (Acc[1] * 100, P[1] * 100, R[1] * 100, Spec[1] * 100, F1[1] * 100, TP_all[1], TN_all[1], FP_all[1],
+             FN_all[1]))
+
+        print('===> Mean [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
               (np.mean(Acc) * 100, np.mean(P) * 100, np.mean(R) * 100, np.mean(Spec) * 100, np.mean(F1) * 100))
 
-        cm = confusion_matrix(y_true_all, y_pred_all)
-        plt.figure(figsize=(12.8, 6))
-        sns.heatmap(cm, annot=True, xticklabels=name_classes, yticklabels=name_classes, cmap="Blues", fmt="g")
-        plt.xlabel('Predicted')
-        plt.ylabel('Actual')
-        plt.title('Confusion Matrix')
-        plt.savefig(os.path.join(snapshot_dir, 'confusion_matrix.png'), bbox_inches='tight', dpi=300)
-        plt.close()
+        # cm = confusion_matrix(y_true_all, y_pred_all)
+        # plt.figure(figsize=(12.8, 6))
+        # sns.heatmap(cm, annot=True, xticklabels=name_classes, yticklabels=name_classes, cmap="Blues", fmt="g")
+        # plt.xlabel('Predicted')
+        # plt.ylabel('Actual')
+        # plt.title('Confusion Matrix')
+        # plt.savefig(os.path.join(snapshot_dir, 'confusion_matrix.png'), bbox_inches='tight', dpi=300)
+        # plt.close()
+
+    print('----------------------------- For all folds ----------------------------------------')
+    print(Acc_classes)
+    print(np.mean(Acc_classes))
+
+    print('===> Mean-Non-Landslide [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
+          (np.mean(Acc_classes[0:len(Acc_classes):2]) * 100, np.mean(Pre_classes[0:len(Pre_classes):2]) * 100,
+           np.mean(Rec_classes[0:len(Rec_classes):2]) * 100, np.mean(Spec_classes[0:len(Spec_classes):2]) * 100,
+           np.mean(F1_classes[0:len(F1_classes):2]) * 100))
+
+    print('===> Mean-Landslide [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
+          (np.mean(Acc_classes[1:len(Acc_classes):2]) * 100, np.mean(Pre_classes[1:len(Pre_classes):2]) * 100,
+           np.mean(Rec_classes[1:len(Rec_classes):2]) * 100, np.mean(Spec_classes[1:len(Spec_classes):2]) * 100,
+           np.mean(F1_classes[1:len(F1_classes):2]) * 100))
+
+    print('===> Mean [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
+          (np.mean(Acc_classes) * 100, np.mean(Pre_classes) * 100, np.mean(Rec_classes) * 100,
+           np.mean(Spec_classes) * 100, np.mean(F1_classes) * 100))
+
+    cm = confusion_matrix(actual_classes, predicted_classes)
+    # cmn = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+    plt.figure(figsize=(10, 10))
+    # sns.heatmap(cm, annot=True, fmt='.2f', xticklabels=name_classes, yticklabels=name_classes, cmap="Blues")
+    sns.heatmap(cm, annot=True, fmt='g', xticklabels=name_classes, yticklabels=name_classes, cmap="Blues")
+    plt.xlabel('Predicted')
+    plt.ylabel('Actual')
+    plt.title('Confusion Matrix')
+    plt.savefig(os.path.join('/content/Landslide4Sense-2022', 'confusion_matrix.pdf'), bbox_inches='tight', dpi=2400)
+    plt.close()
 
 
 if __name__ == '__main__':
