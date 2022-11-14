@@ -64,7 +64,7 @@ def get_arguments():
                         help="number of classes.")
     parser.add_argument("--batch_size", type=int, default=32,
                         help="number of images in each batch.")
-    parser.add_argument("--num_workers", type=int, default=4,
+    parser.add_argument("--num_workers", type=int, default=2,
                         help="number of workers for multithread data-loading.")
     parser.add_argument("--learning_rate", type=float, default=1e-3,
                         help="learning rate.")
@@ -106,7 +106,7 @@ def main():
     cudnn.benchmark = True
 
     # Spliting k-fold
-    kfold_split(num_fold=args.kfold, test_image_number=int(get_size_dataset() / args.kfold))
+    # kfold_split(num_fold=args.kfold, test_image_number=int(get_size_dataset() / args.kfold))
 
     # Create network
     model_import = importName(args.model_module, args.model_name)  # <class 'model.Networks.unet'>
