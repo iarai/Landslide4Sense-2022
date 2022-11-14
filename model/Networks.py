@@ -28,6 +28,8 @@ class _DenseLayer(nn.Module):
         bottleneck_output = self.conv1(self.relu1(self.norm1(concated_features)))
         return bottleneck_output
 
+    # torchscript does not yet support *args, so we overload method
+    # allowing it to take either a List[Tensor] or single Tensor
     def forward(self, input):
         if isinstance(input, torch.Tensor):
             prev_features = [input]
@@ -86,15 +88,15 @@ class DenseNet(nn.Module):
 
         super(DenseNet, self).__init__()
 
-        # Convolution and pooling part from table-1
+        # First convolution
         self.features = nn.Sequential(OrderedDict(
             [('conv0', nn.Conv2d(n_channels, num_init_features, kernel_size=7, stride=2, padding=3, bias=False)),
-             ('norm0', nn.BatchNorm2d(num_init_features)), ('relu0', nn.ReLU(inplace=True)),
+             ('norm0', nn.BatchNorm2d(num_init_features)),
+             ('relu0', nn.ReLU(inplace=True)),
              ('pool0', nn.MaxPool2d(kernel_size=3, stride=2, padding=1))
              ]))
 
-        # Add multiple denseblocks based on config
-        # for densenet-121 config: [6,12,24,16]
+        # Each denseblock
         num_features = num_init_features
         for i, num_layers in enumerate(block_config):  # i = [0,1,2,3] and num_layers = [6, 12, 24, 16]
             block = _DenseBlock(kernel_size=kernel_size[i], num_layers=num_layers, num_input_features=num_features,
@@ -111,10 +113,8 @@ class DenseNet(nn.Module):
         # Final batch norm
         self.features.add_module('norm5', nn.BatchNorm2d(num_features))
 
-        # Linear layer
-        # self.classifier = nn.Linear(in_features=num_features, out_features=n_classes)
-        # self.activation = nn.Sigmoid()
-        self.outc = OutConv(num_features, n_classes)
+        # Classifier layer
+        self.classifier = OutConv(num_features, n_classes)
 
         # Official init from torch repo.
         for m in self.modules():
@@ -129,9 +129,5 @@ class DenseNet(nn.Module):
     def forward(self, x):
         features = self.features(x)
         out = F.relu(features, inplace=True)
-        out = self.outc(out)
-        # out = F.adaptive_avg_pool2d(out, (1, 1))
-        # out = torch.flatten(out, 1)
-        # out = self.classifier(out)
-        # out = self.activation(out)
+        out = self.classifier(out)
         return out
