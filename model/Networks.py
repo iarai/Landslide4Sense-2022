@@ -70,6 +70,15 @@ class _DenseBlock(nn.ModuleDict):
         return torch.cat(features, 1)
 
 
+class OutConv(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(OutConv, self).__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+
+    def forward(self, x):
+        return self.conv(x)
+
+
 class DenseNet(nn.Module):
     def __init__(self, kernel_size=(3, 3, 3), n_channels=14, growth_rate=8, block_config=(6, 12, 24),
                  num_init_features=16, bn_size=4, drop_rate=0,
@@ -105,6 +114,7 @@ class DenseNet(nn.Module):
         # Linear layer
         # self.classifier = nn.Linear(in_features=num_features, out_features=n_classes)
         # self.activation = nn.Sigmoid()
+        self.outc = OutConv(num_features, n_classes)
 
         # Official init from torch repo.
         for m in self.modules():
@@ -119,6 +129,7 @@ class DenseNet(nn.Module):
     def forward(self, x):
         features = self.features(x)
         out = F.relu(features, inplace=True)
+        out = self.outc(out)
         # out = F.adaptive_avg_pool2d(out, (1, 1))
         # out = torch.flatten(out, 1)
         # out = self.classifier(out)
