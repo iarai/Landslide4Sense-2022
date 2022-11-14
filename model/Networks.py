@@ -28,7 +28,7 @@ class _DenseLayer(nn.Module):
         bottleneck_output = self.conv1(self.relu1(self.norm1(concated_features)))
         return bottleneck_output
 
-    def forward(self, input):  # noqa: F811
+    def forward(self, input):
         if isinstance(input, torch.Tensor):
             prev_features = [input]
         else:
@@ -81,7 +81,7 @@ class OutConv(nn.Module):
 
 class DenseNet(nn.Module):
     def __init__(self, kernel_size=(3, 3, 3), n_channels=14, growth_rate=8, block_config=(6, 8, 6),
-                 num_init_features=16, bn_size=4, drop_rate=0,
+                 num_init_features=32, bn_size=4, drop_rate=0,
                  n_classes=2, memory_efficient=False):
 
         super(DenseNet, self).__init__()
