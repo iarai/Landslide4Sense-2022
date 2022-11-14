@@ -80,8 +80,8 @@ class OutConv(nn.Module):
 
 
 class DenseNet(nn.Module):
-    def __init__(self, kernel_size=(3, 3, 3), n_channels=14, growth_rate=8, block_config=(6, 8, 6),
-                 num_init_features=32, bn_size=4, drop_rate=0,
+    def __init__(self, kernel_size=(3, 3, 3), n_channels=14, growth_rate=8, block_config=(4, 6, 4),
+                 num_init_features=64, bn_size=4, drop_rate=0.25,
                  n_classes=2, memory_efficient=False):
 
         super(DenseNet, self).__init__()
