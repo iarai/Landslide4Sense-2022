@@ -80,7 +80,7 @@ class OutConv(nn.Module):
 
 
 class DenseNet(nn.Module):
-    def __init__(self, kernel_size=(3, 3, 3), n_channels=14, growth_rate=8, block_config=(6, 12, 24),
+    def __init__(self, kernel_size=(3, 3, 3), n_channels=14, growth_rate=8, block_config=(6, 8, 6),
                  num_init_features=16, bn_size=4, drop_rate=0,
                  n_classes=2, memory_efficient=False):
 
