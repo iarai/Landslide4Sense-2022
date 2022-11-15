@@ -131,7 +131,7 @@ def main():
         if not os.path.exists(snapshot_dir):
             os.makedirs(snapshot_dir)
 
-            # Takes a local copy of the machine learning algorithm (model) to avoid changing the one passed in
+        # Takes a local copy of the machine learning algorithm (model) to avoid changing the one passed in
         model_ = cp.deepcopy(model)
 
         # model.train() tells your model that you are training the model. This helps inform layers such as Dropout
