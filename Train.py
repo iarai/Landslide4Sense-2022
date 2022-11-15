@@ -96,8 +96,8 @@ def get_arguments():
                         help="number of workers for multithread data-loading.")
     parser.add_argument("--gpu_id", type=int, default=0,
                         help="gpu id in the training.")
-    parser.add_argument("--kfold", type=int, default=10,
-                        help="number of fold for kfold.")
+    parser.add_argument("--k_fold", type=int, default=10,
+                        help="number of fold for k-fold.")
 
     args = parser.parse_args()
 
