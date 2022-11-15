@@ -24,7 +24,12 @@ epsilon = 1e-14
 
 
 def str2bool(v):
-    return v.lower() in ("yes", "true", "t", "1")
+    if v.lower() in ['true', 1]:
+        return True
+    elif v.lower() in ['false', 0]:
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
 def get_size_dataset():
@@ -47,12 +52,18 @@ def get_arguments():
                         help='model name: (default: arch+timestamp)')
     parser.add_argument('--arch', '-a', metavar='ARCH', default='DeformCNN', choices=arch_names,
                         help='model architecture: ' + ' | '.join(arch_names) + ' (default: Dcnv2LandSlideNet)')
+
+    # deform False --> Use only regular convolution
     parser.add_argument('--deform', default=True, type=str2bool,
                         help='use deform conv')
+
+    # modulation = True --> Use modulated deformable convolution at conv3~4
+    # modulation = False --> use deformable convolution at conv3~4
     parser.add_argument('--modulation', default=True, type=str2bool,
                         help='use modulated deform conv')
     parser.add_argument('--min-deform-layer', default=3, type=int,
                         help='minimum number of layer using deform conv')
+
     parser.add_argument('--nesterov', default=False, type=str2bool,
                         help='nesterov')
     parser.add_argument('--dcn', default=2, type=int,
@@ -186,6 +197,8 @@ def main():
         # so we ignore the background when calculating the cross entropy
         cross_entropy_loss = nn.CrossEntropyLoss(ignore_index=255)
 
+        # Here, we use enumerate(src_loader) instead of iter(src_loader)
+        # so that we can track the batch index and do some intra-epoch reporting
         # batch_id: 0 -->  num_steps_stop
         # src_data --> data
         for batch_id, src_data in enumerate(src_loader):
@@ -197,17 +210,18 @@ def main():
             # send your model to the "current device"
             model_.train()
 
-            # Sets gradients of all model parameters to zero.
+            # Sets gradients of all model parameters to zero for every batch!
             # https://stackoverflow.com/questions/48001598/why-do-we-need-to-call-zero-grad-in-pytorch
             optimizer.zero_grad()
 
+            # Every data instance is an input + label pair
             # src_data return: image, label, np.array(size)=[14, 128, 128], name="picture name"
             images, labels, _, _ = src_data
 
             # Put the tensor in cuda
             images = images.cuda()
 
-            # This runs the image through the network and gets a prediction for the object in the image.
+            # Make predictions for this batch
             pred = model_(images)
 
             # resize pred results to network's input size
@@ -215,28 +229,32 @@ def main():
 
             # CE Loss
             labels = labels.cuda().long()  # GPU tensor - torch.cuda.LongTensor
+
+            # Compute the loss value
             cross_entropy_loss_value = cross_entropy_loss(pred_interp, labels)
             _, predict_labels = torch.max(pred_interp, 1)
             predict_labels = predict_labels.detach().cpu().numpy()
             labels = labels.cpu().numpy()
             batch_oa = np.sum(predict_labels == labels) * 1. / len(labels.reshape(-1))
 
+            # Gather data and report
             hist[batch_id, 0] = cross_entropy_loss_value.item()
             hist[batch_id, 1] = batch_oa
 
-            cross_entropy_loss_value.backward()
-            optimizer.step()
+            cross_entropy_loss_value.backward()  # compute gradient
+            optimizer.step()  # Doing optimizing step (adjust learning weights)
 
+            # Gather data and report
             hist[batch_id, -1] = time.time() - tem_time
 
+            # Reports the average per-batch loss for the last 100 batches
             if (batch_id + 1) % 100 == 0:
-                print('Iter %d/%d Time: %.2f cross_entropy_loss = %.3f' % (batch_id + 1, args.num_steps,
-                                                                           10 * np.mean(
-                                                                               hist[batch_id - 9:batch_id + 1, -1]),
-                                                                           np.mean(hist[batch_id - 9:batch_id + 1, 0])))
+                print('Iter %d/%d Time: %.2f cross_entropy_loss = %.3f' %
+                      (batch_id + 1, args.num_steps, 100 * np.mean(hist[batch_id - 99:batch_id + 1, -1]),
+                       np.mean(hist[batch_id - 99:batch_id + 1, 0])))
 
-                if np.mean(hist[batch_id - 9:batch_id + 1, 0]) < train_loss_best:
-                    train_loss_best = np.mean(hist[batch_id - 9:batch_id + 1, 0])
+                if np.mean(hist[batch_id - 99:batch_id + 1, 0]) < train_loss_best:
+                    train_loss_best = np.mean(hist[batch_id - 99:batch_id + 1, 0])
                     torch.save(model_.state_dict(), os.path.join(snapshot_dir, 'model_weight.pth'))
 
         # Later to restore:

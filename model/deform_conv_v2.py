@@ -6,7 +6,7 @@ class DeformConv2d(nn.Module):
     def __init__(self, inc, outc, kernel_size=3, padding=1, stride=1, bias=None, modulation=False):
         """
         Args:
-            modulation (bool, optional): If True, Modulated Defomable Convolution (Deformable ConvNets v2).
+            modulation (bool, optional): If True, Modulated Deformable Convolution (Deformable ConvNets v2).
         """
         super(DeformConv2d, self).__init__()
         self.kernel_size = kernel_size
