@@ -77,7 +77,7 @@ def get_arguments():
                         help="dataset path.")
     parser.add_argument("--train_list", type=str, default='./dataset/train.txt',
                         help="training list file.")
-    parser.add_argument("--test_list", type=str, default='./dataset/valid.txt',
+    parser.add_argument("--test_list", type=str, default='./dataset/test.txt',
                         help="test list file.")
     parser.add_argument("--snapshot_dir", type=str, default='./exp/',
                         help="where to save snapshots of the model.")
