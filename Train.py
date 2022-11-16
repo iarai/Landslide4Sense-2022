@@ -134,7 +134,7 @@ def main():
     cudnn.benchmark = True
 
     # Spliting k-fold
-    kfold_split(num_fold=args.kfold, test_image_number=int(get_size_dataset() / args.kfold))
+    kfold_split(num_fold=args.k_fold, test_image_number=int(get_size_dataset() / args.k_fold))
 
     # create model
     model = archs.__dict__[args.arch](args, args.num_classes)
@@ -147,7 +147,7 @@ def main():
     Acc_classes = []
     Spec_classes = []
 
-    for fold in range(args.kfold):
+    for fold in range(args.k_fold):
         print("Training on Fold %d" % fold)
 
         # Creating train.txt and test.txt
