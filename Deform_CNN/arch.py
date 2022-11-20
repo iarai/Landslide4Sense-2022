@@ -39,6 +39,6 @@ class DeformCNN(nn.Module):
         self.features = nn.Sequential(*features)
         self.fc0 = nn.Linear(in_features=outplanes, out_features=num_classes)
 
-    def forward(self, input):
-        x = self.features(input)
+    def forward(self, inputs):
+        x = self.features(inputs)
         return x
