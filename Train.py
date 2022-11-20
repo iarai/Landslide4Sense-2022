@@ -61,22 +61,17 @@ def get_arguments():
     # modulation = False --> use deformable convolution at conv3~4
     parser.add_argument('--modulation', default=True, type=str2bool,
                         help='use modulated deform conv')
-    parser.add_argument('--min-deform-layer', default=3, type=int,
-                        help='minimum number of layer using deform conv')
-
-    parser.add_argument('--nesterov', default=False, type=str2bool,
-                        help='nesterov')
-    parser.add_argument('--dcn', default=2, type=int,
-                        help='number of layer using deform conv')
+    parser.add_argument('--dcn', default=4, type=int,
+                        help='number of sub-layer')
     parser.add_argument('--cvn', default=2, type=int,
-                        help='number of layer using conv')
+                        help='number of 1-D convolutions')
     parser.add_argument("--input_size", type=str, default='128,128',
                         help="width and height of input images.")
     parser.add_argument("--num_classes", type=int, default=2,
                         help="number of classes.")
     parser.add_argument("--batch_size", type=int, default=32,
                         help="number of images in each batch.")
-    parser.add_argument("--learning_rate", type=float, default=1e-3,
+    parser.add_argument("--learning_rate", type=float, default=3e-4,
                         help="learning rate.")
     parser.add_argument("--num_steps", type=int, default=10000,
                         help="number of training steps.")
