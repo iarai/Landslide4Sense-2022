@@ -175,7 +175,7 @@ def main():
         test_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.test_list, set='labeled'),
                                       batch_size=1, shuffle=False, num_workers=args.num_workers, pin_memory=True)
 
-        optimizer = optim.Adagrad(model_.parameters(), lr=args.learning_rate, betas=(0.9, 0.98), eps=1e-09,
+        optimizer = optim.Adam(model_.parameters(), lr=args.learning_rate, betas=(0.9, 0.98), eps=1e-09,
                                   weight_decay=args.weight_decay)
 
         scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-5, max_lr=1e-3, cycle_momentum=False,
