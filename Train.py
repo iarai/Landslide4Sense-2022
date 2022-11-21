@@ -175,8 +175,11 @@ def main():
         test_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.test_list, set='labeled'),
                                       batch_size=1, shuffle=False, num_workers=args.num_workers, pin_memory=True)
 
-        optimizer = optim.Adam(model_.parameters(),
-                               lr=args.learning_rate, weight_decay=args.weight_decay)
+        optimizer = optim.Adagrad(model_.parameters(), lr=args.learning_rate, betas=(0.9, 0.98), eps=1e-09,
+                                  weight_decay=args.weight_decay)
+
+        scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-5, max_lr=1e-3, cycle_momentum=False,
+                                                step_size_up=len(src_loader) * 8, mode='triangular2')
 
         # resize picture
         interp = nn.Upsample(size=(input_size[1], input_size[0]), mode='bilinear')
@@ -238,6 +241,7 @@ def main():
 
             cross_entropy_loss_value.backward()  # compute gradient
             optimizer.step()  # Doing optimizing step (adjust learning weights)
+            scheduler.step()
 
             # Gather data and report
             hist[batch_id, -1] = time.time() - tem_time

@@ -91,9 +91,9 @@ class DeformConv2d(nn.Module):
         return out
 
     def _get_p_n(self, N, dtype):
-        p_n_x, p_n_y = torch.meshgrid(
-            torch.arange(-(self.kernel_size - 1) // 2, (self.kernel_size - 1) // 2 + 1),
-            torch.arange(-(self.kernel_size - 1) // 2, (self.kernel_size - 1) // 2 + 1))
+        p_n_x, p_n_y = torch.meshgrid(torch.arange(-(self.kernel_size - 1) // 2, (self.kernel_size - 1) // 2 + 1),
+                                      torch.arange(-(self.kernel_size - 1) // 2, (self.kernel_size - 1) // 2 + 1))
+
         # (2N, 1)
         p_n = torch.cat([torch.flatten(p_n_x), torch.flatten(p_n_y)], 0)
         p_n = p_n.view(1, 2 * N, 1, 1).type(dtype)
@@ -101,9 +101,8 @@ class DeformConv2d(nn.Module):
         return p_n
 
     def _get_p_0(self, h, w, N, dtype):
-        p_0_x, p_0_y = torch.meshgrid(
-            torch.arange(1, h * self.stride + 1, self.stride),
-            torch.arange(1, w * self.stride + 1, self.stride))
+        p_0_x, p_0_y = torch.meshgrid(torch.arange(1, h * self.stride + 1, self.stride),
+                                      torch.arange(1, w * self.stride + 1, self.stride))
         p_0_x = torch.flatten(p_0_x).view(1, 1, h, w).repeat(1, N, 1, 1)
         p_0_y = torch.flatten(p_0_y).view(1, 1, h, w).repeat(1, N, 1, 1)
         p_0 = torch.cat([p_0_x, p_0_y], 1).type(dtype)
@@ -124,14 +123,15 @@ class DeformConv2d(nn.Module):
         b, h, w, _ = q.size()
         padded_w = x.size(3)
         c = x.size(1)
+
         # (b, c, h*w)
         x = x.contiguous().view(b, c, -1)
 
         # (b, h, w, N)
         index = q[..., :N] * padded_w + q[..., N:]  # offset_x*w + offset_y
+
         # (b, c, h*w*N)
         index = index.contiguous().unsqueeze(dim=1).expand(-1, c, -1, -1, -1).contiguous().view(b, c, -1)
-
         x_offset = x.gather(dim=-1, index=index).contiguous().view(b, c, h, w, N)
 
         return x_offset
