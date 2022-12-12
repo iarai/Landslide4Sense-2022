@@ -7,6 +7,10 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils import data
 import torch.backends.cudnn as cudnn
+import albumentations as A
+import cv2
+import random
+
 from utils.tools import *
 from dataset.landslide_dataset import LandslideDataSet
 from dataset.kfold import get_train_test_list, kfold_split
@@ -77,8 +81,12 @@ def get_arguments():
                         help="number of training steps.")
     parser.add_argument("--num_steps_stop", type=int, default=10000,
                         help="number of training steps for early stopping.")
+    parser.add_argument("--power", type=float, default=0.9,
+                        help="Decay parameter to compute the learning rate.")
     parser.add_argument("--weight_decay", type=float, default=5e-4,
                         help="regularisation parameter for L2-loss.")
+    parser.add_argument("--momentum", type=float, default=0.9,
+                        help="Momentum component of the optimiser.")
     parser.add_argument("--data_dir", type=str, default='./TrainData/',
                         help="dataset path.")
     parser.add_argument("--train_list", type=str, default='./dataset/train.txt',
@@ -87,7 +95,7 @@ def get_arguments():
                         help="test list file.")
     parser.add_argument("--snapshot_dir", type=str, default='./exp/',
                         help="where to save snapshots of the model.")
-    parser.add_argument("--num_workers", type=int, default=2,
+    parser.add_argument("--num_workers", type=int, default=0,
                         help="number of workers for multithread data-loading.")
     parser.add_argument("--gpu_id", type=int, default=0,
                         help="gpu id in the training.")
@@ -99,8 +107,48 @@ def get_arguments():
     return args
 
 
+args = get_arguments()
+
+
+def lr_poly(base_lr, iter, max_iter, power):
+    return base_lr * ((1 - float(iter) / max_iter) ** (power))
+
+
+def adjust_learning_rate(optimizer, i_iter):
+    lr = lr_poly(args.learning_rate, i_iter, args.num_steps, args.power)
+    optimizer.param_groups[0]['lr'] = lr
+    if len(optimizer.param_groups) > 1:
+        optimizer.param_groups[1]['lr'] = lr * 10
+
+
+aug = A.Compose(
+    [
+        A.OneOf([
+            A.ShiftScaleRotate(shift_limit=0.05,
+                               scale_limit=0.05,
+                               rotate_limit=15,
+                               mask_value=255,
+                               p=0.5),
+            A.OpticalDistortion(distort_limit=0.01,
+                                shift_limit=0.1,
+                                border_mode=cv2.BORDER_CONSTANT,
+                                value=0,
+                                p=0.5),
+            A.GridDistortion(num_steps=5,
+                             border_mode=cv2.BORDER_CONSTANT,
+                             value=0,
+                             p=0.5)], p=1.0),
+        A.VerticalFlip(p=0.3),
+        A.HorizontalFlip(p=0.3),
+        A.Flip(p=0.5)
+    ]
+)
+
+
 def main():
-    args = get_arguments()
+    # args = get_arguments()
+
+    """Create the model and start the training."""
 
     if args.name is None:
         args.name = '%s' % args.arch
@@ -129,7 +177,7 @@ def main():
     cudnn.benchmark = True
 
     # Spliting k-fold
-    kfold_split(num_fold=args.k_fold, test_image_number=int(get_size_dataset() / args.k_fold))
+    # kfold_split(num_fold=args.k_fold, test_image_number=int(get_size_dataset() / args.k_fold))
 
     # create model
     model = archs.__dict__[args.arch](args, args.num_classes)
@@ -163,11 +211,13 @@ def main():
         model_.train()
 
         # send your model to the "current device"
-        model_ = model_.cuda()
+        model_ = model_.cuda(args.gpu_id)
 
         # <torch.utils.data.dataloader.DataLoader object at 0x7fa2ff5af390>
         src_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.train_list,
-                                                      max_iters=args.num_steps_stop * args.batch_size, set='labeled'),
+                                                      max_iters=args.num_steps_stop * args.batch_size,
+                                                      transform=None,
+                                                      set='labeled'),
                                      batch_size=args.batch_size, shuffle=True,
                                      num_workers=args.num_workers, pin_memory=True)
 
@@ -175,11 +225,15 @@ def main():
         test_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.test_list, set='labeled'),
                                       batch_size=1, shuffle=False, num_workers=args.num_workers, pin_memory=True)
 
-        optimizer = optim.Adam(model_.parameters(), lr=args.learning_rate, betas=(0.9, 0.98), eps=1e-09,
-                                  weight_decay=args.weight_decay)
+        # implement model.optim_parameters(args) to handle different models' lr setting
+        # optimizer = optim.SGD(model_.parameters(args), lr=args.learning_rate, momentum=args.momentum,
+        #                       weight_decay=args.weight_decay)
 
-        scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-5, max_lr=1e-3, cycle_momentum=False,
-                                                step_size_up=len(src_loader) * 8, mode='triangular2')
+        optimizer = optim.Adagrad(model_.parameters(), lr=args.learning_rate, betas=(0.9, 0.98), eps=1e-09,
+                               weight_decay=args.weight_decay)
+
+        # scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-5, max_lr=1e-3, cycle_momentum=False,
+        #                                         step_size_up=len(src_loader) * 8, mode='triangular2')
 
         # resize picture
         interp = nn.Upsample(size=(input_size[1], input_size[0]), mode='bilinear')
@@ -211,6 +265,7 @@ def main():
             # Sets gradients of all model parameters to zero for every batch!
             # https://stackoverflow.com/questions/48001598/why-do-we-need-to-call-zero-grad-in-pytorch
             optimizer.zero_grad()
+            adjust_learning_rate(optimizer, batch_id)
 
             # Every data instance is an input + label pair
             # src_data return: image, label, np.array(size)=[14, 128, 128], name="picture name"
@@ -241,7 +296,7 @@ def main():
 
             cross_entropy_loss_value.backward()  # compute gradient
             optimizer.step()  # Doing optimizing step (adjust learning weights)
-            scheduler.step()
+            # scheduler.step()
 
             # Gather data and report
             hist[batch_id, -1] = time.time() - tem_time

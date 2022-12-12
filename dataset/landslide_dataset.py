@@ -6,13 +6,14 @@ import h5py
 
 
 class LandslideDataSet(data.Dataset):
-    def __init__(self, data_dir, list_path, max_iters=None, set='labeled'):
+    def __init__(self, data_dir, list_path, max_iters=None, set='labeled', transform=None):
         self.list_path = list_path
         self.mean = [-0.4914, -0.3074, -0.1277, -0.0625, 0.0439, 0.0803, 0.0644, 0.0802, 0.3000, 0.4082, 0.0823, 0.0516,
                      0.3338, 0.7819]
         self.std = [0.9325, 0.8775, 0.8860, 0.8869, 0.8857, 0.8418, 0.8354, 0.8491, 0.9061, 1.6072, 0.8848, 0.9232,
                     0.9018, 1.2913]
         self.set = set
+        self.transform = transform
         self.img_ids = [i_id.strip() for i_id in open(list_path)]
 
         if not max_iters is None:
@@ -51,10 +52,19 @@ class LandslideDataSet(data.Dataset):
                 label = hf['mask'][:]
             name = datafiles['name']
 
+            if self.transform is not None:
+                augmented = self.transform(image=image, mask=label)
+                image = augmented['image']
+                label = augmented['mask']
+
             image = np.asarray(image, np.float32)
             label = np.asarray(label, np.float32)
             image = image.transpose((-1, 0, 1))
             size = image.shape
+
+            # if self.transform is not None:
+            #   for i in range(len(self.mean)):
+            #       image[i, :, :] = self.transform(image=image[i, :, :])['image']
 
             for i in range(len(self.mean)):
                 image[i, :, :] -= self.mean[i]
@@ -71,6 +81,10 @@ class LandslideDataSet(data.Dataset):
             image = image.transpose((-1, 0, 1))
             size = image.shape
 
+            # if self.transform is not None:
+            #     for i in range(len(self.mean)):
+            #         image[i, :, :] = self.transform(image=image[i, :, :])['image']
+
             for i in range(len(self.mean)):
                 image[i, :, :] -= self.mean[i]
                 image[i, :, :] /= self.std[i]
@@ -79,7 +93,7 @@ class LandslideDataSet(data.Dataset):
 
 
 if __name__ == '__main__':
-    train_dataset = LandslideDataSet(data_dir='./data/TrainData/', list_path='./dataset/train.txt')
+    train_dataset = LandslideDataSet(data_dir='./data/', list_path='./dataset/train.txt')
     train_loader = DataLoader(dataset=train_dataset, batch_size=1, shuffle=True, pin_memory=True)
 
     channels_sum, channel_squared_sum = 0, 0
