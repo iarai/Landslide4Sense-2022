@@ -351,7 +351,7 @@ def main():
         print("\nResuts on fold %d ----------------------------------------------------------------" % fold)
 
         print(
-            '===> Non-Landslide [Acc, Pre, Rec, Spec] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
+            '===> Non-Landslide [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
             (val_log['acc_score'][0] * 100, val_log['pre_score'][0] * 100, val_log['rec_score'][0] * 100,
              val_log['spec_score'][0] * 100, val_log['f1_score'][0] * 100))
 
