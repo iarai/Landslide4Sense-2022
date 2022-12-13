@@ -152,7 +152,7 @@ def train(args, train_loader, model, criterion, optimizer, scheduler, interp):
 
 def validate(args, val_loader, model, criterion, interp, metrics=None):
     losses = AverageMeter()
-    acc_score = AverageMeter()
+    scores = AverageMeter()
 
     if not metrics is None:
         TP_all = np.zeros((args.num_classes, 1))
@@ -202,7 +202,7 @@ def validate(args, val_loader, model, criterion, interp, metrics=None):
                 acc = accuracy(pred, label)
 
                 losses.update(loss.item(), args.batch_size)
-                acc_score.update(acc.item(), args.batch_size)
+                scores.update(acc.item(), args.batch_size)
 
     if not metrics is None:
         for i in range(args.num_classes):
@@ -219,7 +219,6 @@ def validate(args, val_loader, model, criterion, interp, metrics=None):
             ('pre_score', P),
             ('rec_score', R),
             ('spec_score', Spec),
-            ('spec_score', Spec),
             ('target', y_true_all),
             ('pred', y_pred_all),
         ])
@@ -228,7 +227,7 @@ def validate(args, val_loader, model, criterion, interp, metrics=None):
     else:
         log = OrderedDict([
             ('loss', losses.avg),
-            ('acc', acc_score.avg),
+            ('acc', scores.avg),
         ])
 
         return log
@@ -298,7 +297,7 @@ def main():
 
         # <torch.utils.data.dataloader.DataLoader object at 0x7f780a0537d0>
         test_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.test_list, set_mask='masked'),
-                                      batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers,
+                                      batch_size=1, shuffle=False, num_workers=args.num_workers,
                                       pin_memory=True)
 
         # computes the cross entropy loss between input logits and target. the dataset background label is 255,
@@ -349,7 +348,7 @@ def main():
         Acc_classes = np.append(Acc_classes, val_log['acc_score'])
         Spec_classes = np.append(Spec_classes, val_log['spec_score'])
 
-        print("\nResults on fold %d ----------------------------------------------------------------" % fold)
+        print("\nResuts on fold %d ----------------------------------------------------------------" % fold)
 
         print(
             '===> Non-Landslide [Acc, Pre, Rec, Spec] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
