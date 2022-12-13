@@ -10,6 +10,7 @@ import torch.backends.cudnn as cudnn
 import albumentations as A
 import cv2
 import random
+from collections import OrderedDict
 
 from utils.tools import *
 from dataset.landslide_dataset import LandslideDataSet
@@ -27,35 +28,18 @@ name_classes = ['Non-Landslide', 'Landslide']
 epsilon = 1e-14
 
 
-def str2bool(v):
-    if v.lower() in ['true', 1]:
-        return True
-    elif v.lower() in ['false', 0]:
-        return False
-    else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
-
-
-def get_size_dataset():
-    # folder path
-    dir_path = os.path.join(os.getcwd(), 'data/img')
-    count = 0
-
-    # Iterate directory
-    for path in os.listdir(dir_path):
-        # check if current path is a file
-        if os.path.isfile(os.path.join(dir_path, path)):
-            count += 1
-    return count
-
-
 def get_arguments():
-    parser = argparse.ArgumentParser()
+    """Parse all the arguments provided from the CLI.
 
-    parser.add_argument('--name', default='LandSlide_Net',
+        Returns:
+          A list of parsed arguments.
+    """
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--name', default='DeformCNN',
                         help='model name: (default: arch+timestamp)')
     parser.add_argument('--arch', '-a', metavar='ARCH', default='DeformCNN', choices=arch_names,
-                        help='model architecture: ' + ' | '.join(arch_names) + ' (default: Dcnv2LandSlideNet)')
+                        help='model architecture: ' + ' | '.join(arch_names) + ' (default: DeformCNN)')
 
     # deform False --> Use only regular convolution
     parser.add_argument('--deform', default=True, type=str2bool,
@@ -70,23 +54,21 @@ def get_arguments():
     parser.add_argument('--cvn', default=2, type=int,
                         help='number of 1-D convolutions')
     parser.add_argument("--input_size", type=str, default='128,128',
-                        help="width and height of input images.")
+                        help="comma-separated string with height and width of images.")
     parser.add_argument("--num_classes", type=int, default=2,
                         help="number of classes.")
     parser.add_argument("--batch_size", type=int, default=32,
-                        help="number of images in each batch.")
-    parser.add_argument("--learning_rate", type=float, default=3e-4,
-                        help="learning rate.")
-    parser.add_argument("--num_steps", type=int, default=10000,
-                        help="number of training steps.")
-    parser.add_argument("--num_steps_stop", type=int, default=10000,
-                        help="number of training steps for early stopping.")
+                        help="number of images sent to the network in one step.")
+    parser.add_argument("--learning_rate", type=float, default=2.5e-4,
+                        help="base learning rate for training with polynomial decay.")
+    parser.add_argument('--epochs', default=100, type=int, metavar='N',
+                        help='number of total epochs to run')
     parser.add_argument("--power", type=float, default=0.9,
                         help="Decay parameter to compute the learning rate.")
     parser.add_argument("--weight_decay", type=float, default=5e-4,
                         help="regularisation parameter for L2-loss.")
     parser.add_argument("--momentum", type=float, default=0.9,
-                        help="Momentum component of the optimiser.")
+                        help="momentum component of the optimiser.")
     parser.add_argument("--data_dir", type=str, default='./TrainData/',
                         help="dataset path.")
     parser.add_argument("--train_list", type=str, default='./dataset/train.txt',
@@ -101,43 +83,40 @@ def get_arguments():
                         help="gpu id in the training.")
     parser.add_argument("--k_fold", type=int, default=10,
                         help="number of fold for k-fold.")
-
-    args = parser.parse_args()
-
-    return args
-
-
-args = get_arguments()
+    return parser.parse_args()
 
 
 def lr_poly(base_lr, iter, max_iter, power):
     return base_lr * ((1 - float(iter) / max_iter) ** (power))
 
 
-def adjust_learning_rate(optimizer, i_iter):
-    lr = lr_poly(args.learning_rate, i_iter, args.num_steps, args.power)
+def adjust_learning_rate(optimizer, i_iter, learning_rate, num_steps, power):
+    """Sets the learning rate to the initial LR divided by 5 at 60th, 120th and 160th epochs"""
+    lr = lr_poly(learning_rate, i_iter, num_steps, power)
     optimizer.param_groups[0]['lr'] = lr
     if len(optimizer.param_groups) > 1:
         optimizer.param_groups[1]['lr'] = lr * 10
 
 
-aug = A.Compose(
+train_transform = A.Compose(
     [
-        A.OneOf([
-            A.ShiftScaleRotate(shift_limit=0.05,
-                               scale_limit=0.05,
-                               rotate_limit=15,
-                               mask_value=255,
-                               p=0.5),
-            A.OpticalDistortion(distort_limit=0.01,
-                                shift_limit=0.1,
-                                border_mode=cv2.BORDER_CONSTANT,
-                                value=0,
-                                p=0.5),
-            A.GridDistortion(num_steps=5,
-                             border_mode=cv2.BORDER_CONSTANT,
-                             value=0,
-                             p=0.5)], p=1.0),
+        A.OneOf(
+            [
+                A.ShiftScaleRotate(shift_limit=0.2,
+                                   scale_limit=0.2,
+                                   rotate_limit=30,
+                                   p=0.5),
+                # A.OpticalDistortion(distort_limit=0.01,
+                #                     shift_limit=0.1,
+                #                     border_mode=cv2.BORDER_CONSTANT,
+                #                     value=0,
+                #                     p=0.5),
+                # A.GridDistortion(num_steps=5,
+                #                 border_mode=cv2.BORDER_CONSTANT,
+                #                 value=0,
+                #                 p=0.5)
+            ], p=1.0),
+
         A.VerticalFlip(p=0.3),
         A.HorizontalFlip(p=0.3),
         A.Flip(p=0.5)
@@ -145,19 +124,78 @@ aug = A.Compose(
 )
 
 
+def train(args, train_loader, model, criterion, optimizer, epoch, interp):
+    losses = AverageMeter()
+    scores = AverageMeter()
+
+    model.train()
+
+    for batch_id, batch_data in enumerate(train_loader):
+        image, label, _, _ = batch_data
+        image = image.cuda()
+        label = label.cuda().long()
+
+        pred = interp(model(image))
+        loss = criterion(pred, label)
+        # acc = accuracy(pred, label)[0]
+
+        losses.update(loss.item(), image.size(0))
+        # scores.update(acc.item(), image.size(0))
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+    log = OrderedDict([
+        ('loss', losses.avg),
+        # ('acc', scores.avg),
+    ])
+
+    return log
+
+
+#     for _, batch in enumerate(test_loader):
+#         image, label, _, name = batch
+#         label = label.squeeze().numpy()
+#         image = image.float().cuda()
+
+#         with torch.no_grad():
+#             pred = model_(image)
+
+#         _, pred = torch.max(interp(nn.functional.softmax(pred, dim=1)).detach(), 1)
+#         pred = pred.squeeze().data.cpu().numpy()
+
+
+def validate(args, val_loader, model, criterion, interp):
+    losses = AverageMeter()
+    scores = AverageMeter()
+
+    model.eval()
+
+    with torch.no_grad():
+        for _, batch in enumerate(val_loader):
+            image, label, _, name = batch
+            image = image.cuda()
+            label = label.cuda().long()
+
+            pred = interp(model(image))
+            loss = criterion(pred, label)
+            # acc = accuracy(pred, label)[0]
+
+            losses.update(loss.item(), image.size(0))
+            # scores.update(acc.item(), image.size(0))
+
+    log = OrderedDict([
+        ('loss', losses.avg),
+        # ('acc', scores.avg),
+    ])
+
+    return log
+
+
 def main():
-    # args = get_arguments()
-
     """Create the model and start the training."""
-
-    if args.name is None:
-        args.name = '%s' % args.arch
-        if args.deform:
-            args.name += '_wDCN_1fc'
-            if args.modulation:
-                args.name += 'v2'
-            args.name += '_dcn-%d-' % args.dcn
-            args.name += 'cvn-%d' % args.cvn
+    args = get_arguments()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
 
@@ -165,10 +203,10 @@ def main():
     w, h = map(int, args.input_size.split(','))
     input_size = (w, h)
 
-    print('Config -----')
-    for arg in vars(args):
-        print('%s: %s' % (arg, getattr(args, arg)))
-    print('------------')
+    # print('Config -----')
+    # for arg in vars(args):
+    #     print('%s: %s' % (arg, getattr(args, arg)))
+    # print('------------')
 
     # enables cudnn for some operations such as conv layers and RNNs, which can yield a significant speedup.
     cudnn.enabled = True
@@ -177,18 +215,18 @@ def main():
     cudnn.benchmark = True
 
     # Spliting k-fold
-    # kfold_split(num_fold=args.k_fold, test_image_number=int(get_size_dataset() / args.k_fold))
+    kfold_split(num_fold=args.k_fold, test_image_number=int(get_size_dataset() / args.k_fold))
 
     # create model
     model = archs.__dict__[args.arch](args, args.num_classes)
 
-    actual_classes = np.empty([0], dtype=int)
-    predicted_classes = np.empty([0], dtype=int)
-    Pre_classes = []
-    Rec_classes = []
-    F1_classes = []
-    Acc_classes = []
-    Spec_classes = []
+    # actual_classes = np.empty([0], dtype=int)
+    # predicted_classes = np.empty([0], dtype=int)
+    # Pre_classes = []
+    # Rec_classes = []
+    # F1_classes = []
+    # Acc_classes = []
+    # Spec_classes = []
 
     for fold in range(args.k_fold):
         print("Training on Fold %d" % fold)
@@ -208,226 +246,58 @@ def main():
         # and BatchNorm, which are designed to behave differently during training and evaluation. For instance,
         # in training mode, BatchNorm updates a moving average on each new batch;
         # whereas, for evaluation mode, these updates are frozen.
-        model_.train()
+        # model_.train()
 
         # send your model to the "current device"
         model_ = model_.cuda(args.gpu_id)
 
-        # <torch.utils.data.dataloader.DataLoader object at 0x7fa2ff5af390>
-        src_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.train_list,
-                                                      max_iters=args.num_steps_stop * args.batch_size,
-                                                      transform=None,
-                                                      set='labeled'),
-                                     batch_size=args.batch_size, shuffle=True,
-                                     num_workers=args.num_workers, pin_memory=True)
+        # resize picture
+        interp = nn.Upsample(size=(input_size[1], input_size[0]), mode='bilinear', align_corners=True)
 
-        # <torch.utils.data.dataloader.DataLoader object at 0x7f780a0537d0>
-        test_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.test_list, set='labeled'),
-                                      batch_size=1, shuffle=False, num_workers=args.num_workers, pin_memory=True)
+        # computes the cross entropy loss between input logits and target. the dataset background label is 255,
+        # so we ignore the background when calculating the cross entropy
+        criterion = nn.CrossEntropyLoss(ignore_index=255)
 
         # implement model.optim_parameters(args) to handle different models' lr setting
         # optimizer = optim.SGD(model_.parameters(args), lr=args.learning_rate, momentum=args.momentum,
         #                       weight_decay=args.weight_decay)
 
-        optimizer = optim.Adagrad(model_.parameters(), lr=args.learning_rate, betas=(0.9, 0.98), eps=1e-09,
+        optimizer = optim.Adam(model_.parameters(), lr=args.learning_rate, betas=(0.9, 0.98), eps=1e-09,
                                weight_decay=args.weight_decay)
 
-        # scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-5, max_lr=1e-3, cycle_momentum=False,
-        #                                         step_size_up=len(src_loader) * 8, mode='triangular2')
+        # <torch.utils.data.dataloader.DataLoader object at 0x7fa2ff5af390>
+        train_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.train_list,
+                                                        transform=None,
+                                                        set_mask='masked'),
+                                       batch_size=args.batch_size, shuffle=True,
+                                       num_workers=args.num_workers, pin_memory=True)
 
-        # resize picture
-        interp = nn.Upsample(size=(input_size[1], input_size[0]), mode='bilinear')
-
-        # Dung de luu ket qua dat duoc qua num_steps_stop lan train: timem cross_entropy_loss_value, batch_oa
-        # Example: Time: 10.44 Batch_OA = 95.7 cross_entropy_loss = 0.329
-        hist = np.zeros((args.num_steps_stop, 3))
+        # <torch.utils.data.dataloader.DataLoader object at 0x7f780a0537d0>
+        test_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.test_list, set_mask='masked'),
+                                      batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers,
+                                      pin_memory=True)
 
         # Dung de so sanh va luu cac trong so khi F1 > F1_best
         train_loss_best = 5.0
 
-        # computes the cross entropy loss between input logits and target. the dataset background label is 255,
-        # so we ignore the background when calculating the cross entropy
-        cross_entropy_loss = nn.CrossEntropyLoss(ignore_index=255)
-
-        # Here, we use enumerate(src_loader) instead of iter(src_loader)
-        # so that we can track the batch index and do some intra-epoch reporting
-        # batch_id: 0 -->  num_steps_stop
-        # src_data --> data
-        for batch_id, src_data in enumerate(src_loader):
-            if batch_id == args.num_steps_stop:
-                break
-
+        for epoch in range(args.epochs):
             tem_time = time.time()
 
-            # send your model to the "current device"
-            model_.train()
+            # train for one epoch
+            train_log = train(args, train_loader, model_, criterion, optimizer, epoch, interp)
 
-            # Sets gradients of all model parameters to zero for every batch!
-            # https://stackoverflow.com/questions/48001598/why-do-we-need-to-call-zero-grad-in-pytorch
-            optimizer.zero_grad()
-            adjust_learning_rate(optimizer, batch_id)
-
-            # Every data instance is an input + label pair
-            # src_data return: image, label, np.array(size)=[14, 128, 128], name="picture name"
-            images, labels, _, _ = src_data
-
-            # Put the tensor in cuda
-            images = images.cuda()
-
-            # Make predictions for this batch
-            pred = model_(images)
-
-            # resize pred results to network's input size
-            pred_interp = interp(pred)
-
-            # CE Loss
-            labels = labels.cuda().long()  # GPU tensor - torch.cuda.LongTensor
-
-            # Compute the loss value
-            cross_entropy_loss_value = cross_entropy_loss(pred_interp, labels)
-            _, predict_labels = torch.max(pred_interp, 1)
-            predict_labels = predict_labels.detach().cpu().numpy()
-            labels = labels.cpu().numpy()
-            batch_oa = np.sum(predict_labels == labels) * 1. / len(labels.reshape(-1))
+            # evaluate on validation set
+            val_log = validate(args, test_loader, model_, criterion, interp)
 
             # Gather data and report
-            hist[batch_id, 0] = cross_entropy_loss_value.item()
-            hist[batch_id, 1] = batch_oa
+            epoch_time = time.time() - tem_time
 
-            cross_entropy_loss_value.backward()  # compute gradient
-            optimizer.step()  # Doing optimizing step (adjust learning weights)
-            # scheduler.step()
+            # Reports the loss for the each epoch
+            print('Epoch %d/%d - %.2fs - loss %.4f - val_loss %.4f' %
+                  (epoch, args.epochs, epoch_time, train_log['loss'], val_log['loss']))
 
-            # Gather data and report
-            hist[batch_id, -1] = time.time() - tem_time
-
-            # Reports the average per-batch loss for the last 100 batches
-            if (batch_id + 1) % 100 == 0:
-                print('Iter %d/%d Time: %.2f cross_entropy_loss = %.3f' %
-                      (batch_id + 1, args.num_steps, 100 * np.mean(hist[batch_id - 99:batch_id + 1, -1]),
-                       np.mean(hist[batch_id - 99:batch_id + 1, 0])))
-
-                if np.mean(hist[batch_id - 99:batch_id + 1, 0]) < train_loss_best:
-                    train_loss_best = np.mean(hist[batch_id - 99:batch_id + 1, 0])
-                    torch.save(model_.state_dict(), os.path.join(snapshot_dir, 'model_weight.pth'))
-
-        # Later to restore:
-        model_.load_state_dict(torch.load(os.path.join(snapshot_dir, 'model_weight.pth')))
-        model_.eval()
-        TP_all = np.zeros((args.num_classes, 1))
-        FP_all = np.zeros((args.num_classes, 1))
-        TN_all = np.zeros((args.num_classes, 1))
-        FN_all = np.zeros((args.num_classes, 1))
-        # n_valid_sample_all = 0
-        P = np.zeros((args.num_classes, 1))
-        R = np.zeros((args.num_classes, 1))
-        F1 = np.zeros((args.num_classes, 1))
-        Acc = np.zeros((args.num_classes, 1))
-        Spec = np.zeros((args.num_classes, 1))
-
-        y_true_all = []
-        y_pred_all = []
-
-        for _, batch in enumerate(test_loader):
-            image, label, _, name = batch
-            label = label.squeeze().numpy()
-            image = image.float().cuda()
-
-            with torch.no_grad():
-                pred = model_(image)
-
-            _, pred = torch.max(interp(nn.functional.softmax(pred, dim=1)).detach(), 1)
-            pred = pred.squeeze().data.cpu().numpy()
-
-            # Return TP, FP, TN, FN for each batch
-            TP, FP, TN, FN, _ = eval_image(pred.reshape(-1), label.reshape(-1), args.num_classes)
-
-            # Calculating for all of batch
-            TP_all += TP
-            FP_all += FP
-            TN_all += TN
-            FN_all += FN
-            # n_valid_sample_all += n_valid_sample
-
-            y_true_all.append(label.reshape(-1))
-            y_pred_all.append(pred.reshape(-1))
-
-        # y_true_all = np.concatenate(y_true_all).tolist()
-        # y_pred_all = np.concatenate(y_pred_all).tolist()
-
-        actual_classes = np.append(actual_classes, np.concatenate(y_true_all).tolist())
-        predicted_classes = np.append(predicted_classes, np.concatenate(y_pred_all).tolist())
-
-        # OA = np.sum(TP_all) * 1.0 / n_valid_sample_all
-        for i in range(args.num_classes):
-            P[i] = TP_all[i] * 1.0 / (TP_all[i] + FP_all[i] + epsilon)
-            R[i] = TP_all[i] * 1.0 / (TP_all[i] + FN_all[i] + epsilon)
-            Acc[i] = (TP_all[i] + TN_all[i]) / (TP_all[i] + TN_all[i] + FP_all[i] + FN_all[i])
-            Spec[i] = TN_all[i] / (TN_all[i] + FP_all[i])
-            F1[i] = 2.0 * P[i] * R[i] / (P[i] + R[i] + epsilon)
-            # if i == 1:
-            # print('===>' + name_classes[i] + ' Precision: %.2f' % (P * 100))
-            # print('===>' + name_classes[i] + ' Recall: %.2f' % (R * 100))
-            # print('===>' + name_classes[i] + ' F1: %.2f' % (F1[i] * 100))
-
-        Pre_classes = np.append(Pre_classes, P)
-        Rec_classes = np.append(Rec_classes, R)
-        F1_classes = np.append(F1_classes, F1)
-        Acc_classes = np.append(Acc_classes, Acc)
-        Spec_classes = np.append(Spec_classes, Spec)
-
-        print('----------------------------- For per fold ----------------------------------------')
-
-        print(
-            '===> Non-Landslide [Acc, Pre, Rec, Spec, F1, TP, TN, FP, FN] = [%.2f, %.2f, %.2f, %.2f, %.2f, %d, %d, %d, %d]' %
-            (Acc[0] * 100, P[0] * 100, R[0] * 100, Spec[0] * 100, F1[0] * 100, TP_all[0], TN_all[0], FP_all[0],
-             FN_all[0]))
-
-        print(
-            '===> Landslide [Acc, Pre, Rec, Spec, F1, TP, TN, FP, FN] = [%.2f, %.2f, %.2f, %.2f, %.2f, %d, %d, %d, %d]' %
-            (Acc[1] * 100, P[1] * 100, R[1] * 100, Spec[1] * 100, F1[1] * 100, TP_all[1], TN_all[1], FP_all[1],
-             FN_all[1]))
-
-        print('===> Mean [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
-              (np.mean(Acc) * 100, np.mean(P) * 100, np.mean(R) * 100, np.mean(Spec) * 100, np.mean(F1) * 100))
-
-        # cm = confusion_matrix(y_true_all, y_pred_all)
-        # plt.figure(figsize=(12.8, 6))
-        # sns.heatmap(cm, annot=True, xticklabels=name_classes, yticklabels=name_classes, cmap="Blues", fmt="g")
-        # plt.xlabel('Predicted')
-        # plt.ylabel('Actual')
-        # plt.title('Confusion Matrix')
-        # plt.savefig(os.path.join(snapshot_dir, 'confusion_matrix.png'), bbox_inches='tight', dpi=300)
-        # plt.close()
-
-    print('----------------------------- For all folds ----------------------------------------')
-    print(Acc_classes)
-    print(np.mean(Acc_classes))
-
-    print('===> Mean-Non-Landslide [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
-          (np.mean(Acc_classes[0:len(Acc_classes):2]) * 100, np.mean(Pre_classes[0:len(Pre_classes):2]) * 100,
-           np.mean(Rec_classes[0:len(Rec_classes):2]) * 100, np.mean(Spec_classes[0:len(Spec_classes):2]) * 100,
-           np.mean(F1_classes[0:len(F1_classes):2]) * 100))
-
-    print('===> Mean-Landslide [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
-          (np.mean(Acc_classes[1:len(Acc_classes):2]) * 100, np.mean(Pre_classes[1:len(Pre_classes):2]) * 100,
-           np.mean(Rec_classes[1:len(Rec_classes):2]) * 100, np.mean(Spec_classes[1:len(Spec_classes):2]) * 100,
-           np.mean(F1_classes[1:len(F1_classes):2]) * 100))
-
-    print('===> Mean [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
-          (np.mean(Acc_classes) * 100, np.mean(Pre_classes) * 100, np.mean(Rec_classes) * 100,
-           np.mean(Spec_classes) * 100, np.mean(F1_classes) * 100))
-
-    cm = confusion_matrix(actual_classes, predicted_classes)
-    # cmn = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-    plt.figure(figsize=(10, 10))
-    # sns.heatmap(cm, annot=True, fmt='.2f', xticklabels=name_classes, yticklabels=name_classes, cmap="Blues")
-    sns.heatmap(cm, annot=True, fmt='g', xticklabels=name_classes, yticklabels=name_classes, cmap="Blues")
-    plt.xlabel('Predicted')
-    plt.ylabel('Actual')
-    plt.title('Confusion Matrix')
-    plt.savefig(os.path.join('/content/Landslide4Sense-2022', 'confusion_matrix.pdf'), bbox_inches='tight', dpi=2400)
-    plt.close()
+            # print('Epoch %d/%d - %.2fs - loss %.4f - acc %.4f - val_loss %.4f - val_acc %.4f' %
+            #       (epoch, args.epochs, epoch_time, train_log['loss'], train_log['acc'], val_log['loss'], val_log['acc']))
 
 
 if __name__ == '__main__':

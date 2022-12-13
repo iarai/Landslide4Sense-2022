@@ -6,32 +6,31 @@ import h5py
 
 
 class LandslideDataSet(data.Dataset):
-    def __init__(self, data_dir, list_path, max_iters=None, set='labeled', transform=None):
-        self.list_path = list_path
-        self.mean = [-0.4914, -0.3074, -0.1277, -0.0625, 0.0439, 0.0803, 0.0644, 0.0802, 0.3000, 0.4082, 0.0823, 0.0516,
-                     0.3338, 0.7819]
-        self.std = [0.9325, 0.8775, 0.8860, 0.8869, 0.8857, 0.8418, 0.8354, 0.8491, 0.9061, 1.6072, 0.8848, 0.9232,
-                    0.9018, 1.2913]
-        self.set = set
+    def __init__(self, data_dir, list_path, set_mask='masked', transform=None):
+        self.mean = [0.9257, 0.9227, 0.9541, 0.9596, 1.0228, 1.0426, 1.0358, 1.0468, 1.1699, 1.1736, 1.0495, 1.0370,
+                     1.2511, 1.6495]
+        self.std = [0.1410, 0.2207, 0.3184, 0.5724, 0.4601, 0.4465, 0.4651, 0.4948, 0.5133, 0.6836, 0.5323, 0.6628,
+                    0.6784, 1.0727]
+        self.set_mask = set_mask
         self.transform = transform
         self.img_ids = [i_id.strip() for i_id in open(list_path)]
 
-        if not max_iters is None:
-            n_repeat = int(np.ceil(max_iters / len(self.img_ids)))
-            self.img_ids = self.img_ids * n_repeat + self.img_ids[:max_iters - n_repeat * len(self.img_ids)]
+        # if not max_iters is None:
+        #     n_repeat = int(np.ceil(max_iters / len(self.img_ids)))
+        #     self.img_ids = self.img_ids * n_repeat + self.img_ids[:max_iters - n_repeat * len(self.img_ids)]
 
         self.files = []
 
-        if set == 'labeled':
+        if set_mask == 'masked':
             for name in self.img_ids:
                 img_file = data_dir + name
-                label_file = data_dir + name.replace('img', 'mask').replace('image', 'mask')
+                mask_file = data_dir + name.replace('img', 'mask').replace('image', 'mask')
                 self.files.append({
                     'img': img_file,
-                    'label': label_file,
+                    'masked': mask_file,
                     'name': name
                 })
-        elif set == 'unlabeled':
+        elif set_mask == 'unmasked':
             for name in self.img_ids:
                 img_file = data_dir + name
                 self.files.append({
@@ -45,20 +44,20 @@ class LandslideDataSet(data.Dataset):
     def __getitem__(self, index):
         datafiles = self.files[index]
 
-        if self.set == 'labeled':
+        if self.set_mask == 'masked':
             with h5py.File(datafiles['img'], 'r') as hf:
                 image = hf['img'][:]
-            with h5py.File(datafiles['label'], 'r') as hf:
-                label = hf['mask'][:]
+            with h5py.File(datafiles['masked'], 'r') as hf:
+                mask = hf['mask'][:]
             name = datafiles['name']
 
             if self.transform is not None:
-                augmented = self.transform(image=image, mask=label)
-                image = augmented['image']
-                label = augmented['mask']
+                transformed = self.transform(image=image, mask=mask)
+                image = transformed['image']
+                mask = transformed['mask']
 
             image = np.asarray(image, np.float32)
-            label = np.asarray(label, np.float32)
+            mask = np.asarray(mask, np.float32)
             image = image.transpose((-1, 0, 1))
             size = image.shape
 
@@ -70,7 +69,7 @@ class LandslideDataSet(data.Dataset):
                 image[i, :, :] -= self.mean[i]
                 image[i, :, :] /= self.std[i]
 
-            return image.copy(), label.copy(), np.array(size), name
+            return image.copy(), mask.copy(), np.array(size), name
 
         else:
             with h5py.File(datafiles['img'], 'r') as hf:
