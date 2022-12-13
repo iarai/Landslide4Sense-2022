@@ -349,7 +349,7 @@ def main():
         Acc_classes = np.append(Acc_classes, val_log['acc_score'])
         Spec_classes = np.append(Spec_classes, val_log['spec_score'])
 
-        print('\n\n--------------------------------------------------------------------------------\n\n')
+        print('\n\nValidating --------------------------------------------------------------------\n\n')
 
         print(
             '===> Non-Landslide [Acc, Pre, Rec, Spec] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
