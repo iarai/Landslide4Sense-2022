@@ -86,18 +86,6 @@ def get_arguments():
     return parser.parse_args()
 
 
-def lr_poly(base_lr, iter, max_iter, power):
-    return base_lr * ((1 - float(iter) / max_iter) ** (power))
-
-
-def adjust_learning_rate(optimizer, i_iter, learning_rate, num_steps, power):
-    """Sets the learning rate to the initial LR divided by 5 at 60th, 120th and 160th epochs"""
-    lr = lr_poly(learning_rate, i_iter, num_steps, power)
-    optimizer.param_groups[0]['lr'] = lr
-    if len(optimizer.param_groups) > 1:
-        optimizer.param_groups[1]['lr'] = lr * 10
-
-
 train_transform = A.Compose(
     [
         A.OneOf(
@@ -128,6 +116,10 @@ def train(args, train_loader, model, criterion, optimizer, scheduler, interp):
     losses = AverageMeter()
     scores = AverageMeter()
 
+    # model.train() tells your model that you are training the model. This helps inform layers such as Dropout
+    # and BatchNorm, which are designed to behave differently during training and evaluation. For instance,
+    # in training mode, BatchNorm updates a moving average on each new batch;
+    # whereas, for evaluation mode, these updates are frozen.
     model.train()
 
     for batch_id, batch_data in enumerate(train_loader):
@@ -227,6 +219,9 @@ def validate(args, val_loader, model, criterion, interp, metrics=None):
             ('pre_score', P),
             ('rec_score', R),
             ('spec_score', Spec),
+            ('spec_score', Spec),
+            ('target', y_true_all),
+            ('pred', y_pred_all),
         ])
 
         return log_other
@@ -288,12 +283,6 @@ def main():
         # Takes a local copy of the machine learning algorithm (model) to avoid changing the one passed in
         model_ = cp.deepcopy(model)
 
-        # model.train() tells your model that you are training the model. This helps inform layers such as Dropout
-        # and BatchNorm, which are designed to behave differently during training and evaluation. For instance,
-        # in training mode, BatchNorm updates a moving average on each new batch;
-        # whereas, for evaluation mode, these updates are frozen.
-        # model_.train()
-
         # send your model to the "current device"
         model_ = model_.cuda(args.gpu_id)
 
@@ -354,6 +343,14 @@ def main():
         model_.load_state_dict(torch.load(os.path.join(snapshot_dir, 'model_weight_best.pth')))
         val_log = validate(args, test_loader, model_, criterion, interp, metrics='all')
 
+        Pre_classes = np.append(Pre_classes, val_log['pre_score'])
+        Rec_classes = np.append(Rec_classes, val_log['rec_score'])
+        F1_classes = np.append(F1_classes, val_log['f1_score'])
+        Acc_classes = np.append(Acc_classes, val_log['acc_score'])
+        Spec_classes = np.append(Spec_classes, val_log['spec_score'])
+
+        print('\n\n--------------------------------------------------------------------------------\n\n')
+
         print(
             '===> Non-Landslide [Acc, Pre, Rec, Spec] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
             (val_log['acc_score'][0] * 100, val_log['pre_score'][0] * 100, val_log['rec_score'][0] * 100,
@@ -368,6 +365,37 @@ def main():
               (np.mean(val_log['acc_score']) * 100, np.mean(val_log['pre_score']) * 100,
                np.mean(val_log['rec_score']) * 100, np.mean(val_log['spec_score']) * 100,
                np.mean(val_log['f1_score']) * 100))
+
+    print('\n\n----------------------------- For all folds ----------------------------------------\n\n')
+
+    print('===> Mean-Non-Landslide [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
+          (np.mean(Acc_classes[0:len(Acc_classes):2]) * 100, np.mean(Pre_classes[0:len(Pre_classes):2]) * 100,
+           np.mean(Rec_classes[0:len(Rec_classes):2]) * 100, np.mean(Spec_classes[0:len(Spec_classes):2]) * 100,
+           np.mean(F1_classes[0:len(F1_classes):2]) * 100))
+
+    print('===> Mean-Landslide [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
+          (np.mean(Acc_classes[1:len(Acc_classes):2]) * 100, np.mean(Pre_classes[1:len(Pre_classes):2]) * 100,
+           np.mean(Rec_classes[1:len(Rec_classes):2]) * 100, np.mean(Spec_classes[1:len(Spec_classes):2]) * 100,
+           np.mean(F1_classes[1:len(F1_classes):2]) * 100))
+
+    print('===> Mean [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
+          (np.mean(Acc_classes) * 100, np.mean(Pre_classes) * 100, np.mean(Rec_classes) * 100,
+           np.mean(Spec_classes) * 100, np.mean(F1_classes) * 100))
+
+    # # For plot confusion matrix
+    # actual_classes = np.append(actual_classes, np.concatenate(val_log['target']).tolist())
+    # predicted_classes = np.append(predicted_classes, np.concatenate(val_log['pred']).tolist())
+
+    # cm = confusion_matrix(actual_classes, predicted_classes)
+    # # cmn = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+    # plt.figure(figsize=(10, 10))
+    # # sns.heatmap(cm, annot=True, fmt='.2f', xticklabels=name_classes, yticklabels=name_classes, cmap="Blues")
+    # sns.heatmap(cm, annot=True, fmt='g', xticklabels=name_classes, yticklabels=name_classes, cmap="Blues")
+    # plt.xlabel('Predicted')
+    # plt.ylabel('Actual')
+    # plt.title('Confusion Matrix')
+    # plt.savefig(os.path.join('image/', 'confusion_matrix.pdf'), bbox_inches='tight', dpi=2400)
+    # plt.close()
 
 
 if __name__ == '__main__':
