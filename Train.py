@@ -288,7 +288,7 @@ def main():
             #       (epoch, args.epochs, epoch_time, train_log['loss'], train_log['acc'], val_log['loss']))
 
             print('Epoch %d/%d - %.2fs - loss %.4f - acc %.4f - val_loss %.4f - val_acc %.4f' %
-                  (epoch, args.epochs, epoch_time, train_log['loss'], train_log['acc'], val_log['loss'], val_log['acc']))
+                  (epoch+1, args.epochs, epoch_time, train_log['loss'], train_log['acc'], val_log['loss'], val_log['acc']))
 
 
 if __name__ == '__main__':
