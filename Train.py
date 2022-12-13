@@ -270,7 +270,7 @@ def main():
     Spec_classes = []
 
     for fold in range(args.k_fold):
-        print("Training on Fold %d" % fold)
+        print("\nTraining on Fold %d" % fold)
 
         # Creating train.txt and test.txt
         get_train_test_list(fold)
@@ -349,7 +349,7 @@ def main():
         Acc_classes = np.append(Acc_classes, val_log['acc_score'])
         Spec_classes = np.append(Spec_classes, val_log['spec_score'])
 
-        print('\n\nValidating --------------------------------------------------------------------\n\n')
+        print("\nResults on fold %d ----------------------------------------------------------------" % fold)
 
         print(
             '===> Non-Landslide [Acc, Pre, Rec, Spec] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
@@ -366,7 +366,7 @@ def main():
                np.mean(val_log['rec_score']) * 100, np.mean(val_log['spec_score']) * 100,
                np.mean(val_log['f1_score']) * 100))
 
-    print('\n\n----------------------------- For all folds ----------------------------------------\n\n')
+    print('\n\n----------------------------- For all folds ----------------------------------------\n')
 
     print('===> Mean-Non-Landslide [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
           (np.mean(Acc_classes[0:len(Acc_classes):2]) * 100, np.mean(Pre_classes[0:len(Pre_classes):2]) * 100,
