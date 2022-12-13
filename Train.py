@@ -255,7 +255,7 @@ def main():
     cudnn.benchmark = True
 
     # Spliting k-fold
-    # kfold_split(num_fold=args.k_fold, test_image_number=int(get_size_dataset() / args.k_fold))
+    kfold_split(num_fold=args.k_fold, test_image_number=int(get_size_dataset() / args.k_fold))
 
     # create model
     model = archs.__dict__[args.arch](args, args.num_classes)
@@ -297,7 +297,7 @@ def main():
 
         # <torch.utils.data.dataloader.DataLoader object at 0x7f780a0537d0>
         test_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.test_list, set_mask='masked'),
-                                      batch_size=1, shuffle=False, num_workers=args.num_workers,
+                                      batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers,
                                       pin_memory=True)
 
         # computes the cross entropy loss between input logits and target. the dataset background label is 255,
@@ -399,4 +399,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
