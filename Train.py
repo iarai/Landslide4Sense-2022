@@ -16,7 +16,7 @@ from utils.tools import *
 from dataset.landslide_dataset import LandslideDataSet
 from dataset.kfold import get_train_test_list, kfold_split
 
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, f1_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -124,7 +124,7 @@ train_transform = A.Compose(
 )
 
 
-def train(args, train_loader, model, criterion, optimizer, epoch, interp):
+def train(args, train_loader, model, criterion, optimizer, scheduler, interp):
     losses = AverageMeter()
     scores = AverageMeter()
 
@@ -148,6 +148,7 @@ def train(args, train_loader, model, criterion, optimizer, epoch, interp):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        scheduler.step()
 
     log = OrderedDict([
         ('loss', losses.avg),
@@ -157,31 +158,85 @@ def train(args, train_loader, model, criterion, optimizer, epoch, interp):
     return log
 
 
-def validate(args, val_loader, model, criterion, interp):
+def validate(args, val_loader, model, criterion, interp, metrics=None):
     losses = AverageMeter()
-    scores = AverageMeter()
+    acc_score = AverageMeter()
+
+    if not metrics is None:
+        TP_all = np.zeros((args.num_classes, 1))
+        FP_all = np.zeros((args.num_classes, 1))
+        TN_all = np.zeros((args.num_classes, 1))
+        FN_all = np.zeros((args.num_classes, 1))
+        P = np.zeros((args.num_classes, 1))
+        R = np.zeros((args.num_classes, 1))
+        F1 = np.zeros((args.num_classes, 1))
+        Acc = np.zeros((args.num_classes, 1))
+        Spec = np.zeros((args.num_classes, 1))
+        y_true_all = []
+        y_pred_all = []
 
     model.eval()
 
     with torch.no_grad():
         for _, batch in enumerate(val_loader):
             image, label, _, name = batch
-            image = image.cuda()
-            label = label.cuda().long()
 
-            pred = interp(model(image))
-            loss = criterion(pred, label)
-            acc = accuracy(pred, label)
+            if not metrics is None:
+                label = label.squeeze().numpy()
+                image = image.float().cuda()
 
-            losses.update(loss.item(), args.batch_size)
-            scores.update(acc.item(), args.batch_size)
+                pred = model(image)
+                _, pred = torch.max(interp(nn.functional.softmax(pred, dim=1)).detach(), 1)
+                pred = pred.squeeze().data.cpu().numpy()
 
-    log = OrderedDict([
-        ('loss', losses.avg),
-        ('acc', scores.avg),
-    ])
+                # Return TP, FP, TN, FN for each batch
+                TP, FP, TN, FN, _ = eval_image(pred.reshape(-1), label.reshape(-1), args.num_classes)
 
-    return log
+                # Calculating for all of batch
+                TP_all += TP
+                FP_all += FP
+                TN_all += TN
+                FN_all += FN
+
+                y_true_all.append(label.reshape(-1))
+                y_pred_all.append(pred.reshape(-1))
+
+            else:
+                image = image.cuda()
+                label = label.cuda().long()
+
+                pred = interp(model(image))
+                loss = criterion(pred, label)
+                acc = accuracy(pred, label)
+
+                losses.update(loss.item(), args.batch_size)
+                acc_score.update(acc.item(), args.batch_size)
+
+    if not metrics is None:
+        for i in range(args.num_classes):
+            P[i] = TP_all[i] * 1.0 / (TP_all[i] + FP_all[i] + epsilon)
+            R[i] = TP_all[i] * 1.0 / (TP_all[i] + FN_all[i] + epsilon)
+            Acc[i] = (TP_all[i] + TN_all[i]) / (TP_all[i] + TN_all[i] + FP_all[i] + FN_all[i])
+            Spec[i] = TN_all[i] / (TN_all[i] + FP_all[i])
+            F1[i] = 2.0 * P[i] * R[i] / (P[i] + R[i] + epsilon)
+
+    if not metrics is None:
+        log_other = OrderedDict([
+            ('acc_score', Acc),
+            ('f1_score', F1),
+            ('pre_score', P),
+            ('rec_score', R),
+            ('spec_score', Spec),
+        ])
+
+        return log_other
+    else:
+        log = OrderedDict([
+            ('loss', losses.avg),
+            ('acc', acc_score.avg),
+        ])
+
+        return log
 
 
 def main():
@@ -211,13 +266,13 @@ def main():
     # create model
     model = archs.__dict__[args.arch](args, args.num_classes)
 
-    # actual_classes = np.empty([0], dtype=int)
-    # predicted_classes = np.empty([0], dtype=int)
-    # Pre_classes = []
-    # Rec_classes = []
-    # F1_classes = []
-    # Acc_classes = []
-    # Spec_classes = []
+    actual_classes = np.empty([0], dtype=int)
+    predicted_classes = np.empty([0], dtype=int)
+    Pre_classes = []
+    Rec_classes = []
+    F1_classes = []
+    Acc_classes = []
+    Spec_classes = []
 
     for fold in range(args.k_fold):
         print("Training on Fold %d" % fold)
@@ -245,17 +300,6 @@ def main():
         # resize picture
         interp = nn.Upsample(size=(input_size[1], input_size[0]), mode='bilinear', align_corners=True)
 
-        # computes the cross entropy loss between input logits and target. the dataset background label is 255,
-        # so we ignore the background when calculating the cross entropy
-        criterion = nn.CrossEntropyLoss(ignore_index=255)
-
-        # implement model.optim_parameters(args) to handle different models' lr setting
-        # optimizer = optim.SGD(model_.parameters(args), lr=args.learning_rate, momentum=args.momentum,
-        #                       weight_decay=args.weight_decay)
-
-        optimizer = optim.Adam(model_.parameters(), lr=args.learning_rate, betas=(0.9, 0.98), eps=1e-09,
-                               weight_decay=args.weight_decay)
-
         # <torch.utils.data.dataloader.DataLoader object at 0x7fa2ff5af390>
         train_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.train_list,
                                                         transform=None,
@@ -268,28 +312,64 @@ def main():
                                       batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers,
                                       pin_memory=True)
 
+        # computes the cross entropy loss between input logits and target. the dataset background label is 255,
+        # so we ignore the background when calculating the cross entropy
+        criterion = nn.CrossEntropyLoss(ignore_index=255)
+
+        # implement model.optim_parameters(args) to handle different models' lr setting
+        # optimizer = optim.SGD(model_.parameters(args), lr=args.learning_rate, momentum=args.momentum,
+        #                       weight_decay=args.weight_decay)
+
+        optimizer = optim.Adam(model_.parameters(), lr=args.learning_rate, betas=(0.9, 0.98), eps=1e-09,
+                               weight_decay=args.weight_decay)
+
+        scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-5, max_lr=1e-3, cycle_momentum=False,
+                                                step_size_up=len(train_loader) * 8, mode='triangular2')
+
         # Dung de so sanh va luu cac trong so khi F1 > F1_best
-        train_loss_best = 5.0
+        val_loss_best = 10.0
 
         for epoch in range(args.epochs):
             tem_time = time.time()
 
             # train for one epoch
-            train_log = train(args, train_loader, model_, criterion, optimizer, epoch, interp)
+            train_log = train(args, train_loader, model_, criterion, optimizer, scheduler, interp)
 
             # evaluate on validation set
-            val_log = validate(args, test_loader, model_, criterion, interp)
+            val_log = validate(args, test_loader, model_, criterion, interp, metrics=None)
 
             # Gather data and report
             epoch_time = time.time() - tem_time
 
-            # Reports the loss for the each epoch
-            # print('Epoch %d/%d - %.2fs - loss %.4f - acc %.4f - val_loss %.4f' %
-            #       (epoch, args.epochs, epoch_time, train_log['loss'], train_log['acc'], val_log['loss']))
+            if val_log['loss'] < val_loss_best:
+                val_loss_best = val_log['loss']
+                torch.save(model_.state_dict(), os.path.join(snapshot_dir, 'model_weight_best.pth'))
 
+            # Reports the loss for the each epoch
             print('Epoch %d/%d - %.2fs - loss %.4f - acc %.4f - val_loss %.4f - val_acc %.4f' %
-                  (epoch+1, args.epochs, epoch_time, train_log['loss'], train_log['acc'], val_log['loss'], val_log['acc']))
+                  (epoch + 1, args.epochs, epoch_time, train_log['loss'], train_log['acc'], val_log['loss'],
+                   val_log['acc']))
+
+        # Later to restore:
+        model_.load_state_dict(torch.load(os.path.join(snapshot_dir, 'model_weight_best.pth')))
+        val_log = validate(args, test_loader, model_, criterion, interp, metrics='all')
+
+        print(
+            '===> Non-Landslide [Acc, Pre, Rec, Spec] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
+            (val_log['acc_score'][0] * 100, val_log['pre_score'][0] * 100, val_log['rec_score'][0] * 100,
+             val_log['spec_score'][0] * 100, val_log['f1_score'][0] * 100))
+
+        print(
+            '===> Landslide [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
+            (val_log['acc_score'][1] * 100, val_log['pre_score'][1] * 100, val_log['rec_score'][1] * 100,
+             val_log['spec_score'][1] * 100, val_log['f1_score'][1] * 100))
+
+        print('===> Mean [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
+              (np.mean(val_log['acc_score']) * 100, np.mean(val_log['pre_score']) * 100,
+               np.mean(val_log['rec_score']) * 100, np.mean(val_log['spec_score']) * 100,
+               np.mean(val_log['f1_score']) * 100))
 
 
 if __name__ == '__main__':
     main()
+
