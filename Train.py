@@ -136,11 +136,12 @@ def train(args, train_loader, model, criterion, optimizer, epoch, interp):
         label = label.cuda().long()
 
         pred = interp(model(image))
-        loss = criterion(pred, label)
-        # acc = accuracy(pred, label)[0]
 
-        losses.update(loss.item(), image.size(0))
-        # scores.update(acc.item(), image.size(0))
+        loss = criterion(pred, label)
+        acc = accuracy(pred, label)
+
+        losses.update(loss.item(), args.batch_size)
+        scores.update(acc.item(), args.batch_size)
 
         optimizer.zero_grad()
         loss.backward()
@@ -148,22 +149,10 @@ def train(args, train_loader, model, criterion, optimizer, epoch, interp):
 
     log = OrderedDict([
         ('loss', losses.avg),
-        # ('acc', scores.avg),
+        ('acc', acc),
     ])
 
     return log
-
-
-#     for _, batch in enumerate(test_loader):
-#         image, label, _, name = batch
-#         label = label.squeeze().numpy()
-#         image = image.float().cuda()
-
-#         with torch.no_grad():
-#             pred = model_(image)
-
-#         _, pred = torch.max(interp(nn.functional.softmax(pred, dim=1)).detach(), 1)
-#         pred = pred.squeeze().data.cpu().numpy()
 
 
 def validate(args, val_loader, model, criterion, interp):
@@ -180,14 +169,14 @@ def validate(args, val_loader, model, criterion, interp):
 
             pred = interp(model(image))
             loss = criterion(pred, label)
-            # acc = accuracy(pred, label)[0]
+            acc = accuracy(pred, label)
 
-            losses.update(loss.item(), image.size(0))
-            # scores.update(acc.item(), image.size(0))
+            losses.update(loss.item(), args.batch_size)
+            scores.update(acc.item(), args.batch_size)
 
     log = OrderedDict([
         ('loss', losses.avg),
-        # ('acc', scores.avg),
+        ('acc', acc),
     ])
 
     return log
@@ -215,7 +204,7 @@ def main():
     cudnn.benchmark = True
 
     # Spliting k-fold
-    kfold_split(num_fold=args.k_fold, test_image_number=int(get_size_dataset() / args.k_fold))
+    # kfold_split(num_fold=args.k_fold, test_image_number=int(get_size_dataset() / args.k_fold))
 
     # create model
     model = archs.__dict__[args.arch](args, args.num_classes)
@@ -293,11 +282,11 @@ def main():
             epoch_time = time.time() - tem_time
 
             # Reports the loss for the each epoch
-            print('Epoch %d/%d - %.2fs - loss %.4f - val_loss %.4f' %
-                  (epoch, args.epochs, epoch_time, train_log['loss'], val_log['loss']))
+            # print('Epoch %d/%d - %.2fs - loss %.4f - acc %.4f - val_loss %.4f' %
+            #       (epoch, args.epochs, epoch_time, train_log['loss'], train_log['acc'], val_log['loss']))
 
-            # print('Epoch %d/%d - %.2fs - loss %.4f - acc %.4f - val_loss %.4f - val_acc %.4f' %
-            #       (epoch, args.epochs, epoch_time, train_log['loss'], train_log['acc'], val_log['loss'], val_log['acc']))
+            print('Epoch %d/%d - %.2fs - loss %.4f - acc %.4f - val_loss %.4f - val_acc %.4f' %
+                  (epoch, args.epochs, epoch_time, train_log['loss'], train_log['acc'], val_log['loss'], val_log['acc']))
 
 
 if __name__ == '__main__':

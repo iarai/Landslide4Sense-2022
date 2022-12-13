@@ -18,7 +18,14 @@ def count_params(model):
 
 
 class AverageMeter(object):
-    """Computes and stores the average and current value"""
+    """Computes and stores the average and current value.
+
+    Examples::
+        # >>> # Initialize a meter to record loss
+        # >>> losses = AverageMeter()
+        # >>> # Update meter after every minibatch update
+        # >>> losses.update(loss_value, batch_size)
+    """
 
     def __init__(self):
         self.reset()
@@ -36,40 +43,28 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def accuracy(output, target, topk=(1,)):
-    """Computes the accuracy over the k top predictions for the specified values of k.
-
-    Args:
-        output (torch.Tensor): prediction matrix with shape (batch_size, num_classes).
-        target (torch.LongTensor): ground truth labels with shape (batch_size).
-        topk (tuple, optional): accuracy at top-k will be computed. For example,
-                                topk=(1, 5) means accuracy at top-1 and top-5 will be computed.
-
-    Returns:
-        list: accuracy at top-k.
-
-    Examples::
-        # >>> from torchreid import metrics
-        # >>> metrics.accuracy(output, target)
+def accuracy(logits, target, topk=(1,), ignore_index=255):
+    """ Suppose you have the ground truth prediction tensor y of shape b-h-w
+        (dtype=torch.int64). Your model predicts per-pixel class logits of
+        shape b-c-h-w, with c is the number of classes (including "background").
+        These logits are the "raw" predictions before softmax function transforms
+         them into class probabilities. Since we are only looking at the top k,
+         it does not matter if the predictions are "raw" or "probabilities".
     """
-
     maxk = max(topk)
-    batch_size = target.size(0)
 
-    if isinstance(output, (tuple, list)):
-        output = output[0]
+    # compute the top k predicted classes, per pixel
+    _, tk = torch.topk(logits, maxk, dim=1)
 
-    _, pred = output.topk(k=maxk, dim=1, largest=True, sorted=True)
-    pred = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
+    # you now have k predictions per pixel, and you want that one of them
+    # will match the true labels target
+    correct_pixels = torch.eq(target[:, None, ...], tk).any(dim=1).float()
 
-    res = []
-    for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
-        acc = correct_k.mul_(100.0 / batch_size)
-        res.append(acc)
+    # take the mean of correct_pixels to get the overall average top-k accuracy
+    valid = target != ignore_index
+    top_k_acc = correct_pixels[valid].mean()
 
-    return res
+    return top_k_acc
 
 
 def eval_image(predict, label, num_classes):
