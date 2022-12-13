@@ -149,7 +149,7 @@ def train(args, train_loader, model, criterion, optimizer, epoch, interp):
 
     log = OrderedDict([
         ('loss', losses.avg),
-        ('acc', acc),
+        ('acc', acc.avg),
     ])
 
     return log
@@ -176,7 +176,7 @@ def validate(args, val_loader, model, criterion, interp):
 
     log = OrderedDict([
         ('loss', losses.avg),
-        ('acc', acc),
+        ('acc', acc.avg),
     ])
 
     return log
