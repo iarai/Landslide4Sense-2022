@@ -131,6 +131,8 @@ def train(args, train_loader, model, criterion, optimizer, epoch, interp):
     model.train()
 
     for batch_id, batch_data in enumerate(train_loader):
+        optimizer.zero_grad()
+
         image, label, _, _ = batch_data
         image = image.cuda()
         label = label.cuda().long()
