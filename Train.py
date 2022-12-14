@@ -65,7 +65,7 @@ def get_arguments():
                         help='number of total epochs to run')
     parser.add_argument("--power", type=float, default=0.9,
                         help="Decay parameter to compute the learning rate.")
-    parser.add_argument("--weight_decay", type=float, default=5e-4,
+    parser.add_argument("--weight_decay", type=float, default=1e-2,
                         help="regularisation parameter for L2-loss.")
     parser.add_argument("--momentum", type=float, default=0.9,
                         help="momentum component of the optimiser.")
@@ -140,7 +140,8 @@ def train(args, train_loader, model, criterion, optimizer, scheduler, interp):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        scheduler.step()
+
+    scheduler.step()
 
     log = OrderedDict([
         ('loss', losses.avg),
@@ -151,8 +152,7 @@ def train(args, train_loader, model, criterion, optimizer, scheduler, interp):
 
 
 def validate(args, val_loader, model, criterion, interp, metrics=None):
-    losses = AverageMeter()
-    scores = AverageMeter()
+    model.eval()
 
     if not metrics is None:
         TP_all = np.zeros((args.num_classes, 1))
@@ -162,63 +162,61 @@ def validate(args, val_loader, model, criterion, interp, metrics=None):
         P = np.zeros((args.num_classes, 1))
         R = np.zeros((args.num_classes, 1))
         F1 = np.zeros((args.num_classes, 1))
-        Acc = np.zeros((args.num_classes, 1))
-        Spec = np.zeros((args.num_classes, 1))
         y_true_all = []
         y_pred_all = []
+    else:
+        losses = AverageMeter()
+        scores = AverageMeter()
 
-    model.eval()
+    for _, batch in enumerate(val_loader):
+        image, label, _, name = batch
 
-    with torch.no_grad():
-        for _, batch in enumerate(val_loader):
-            image, label, _, name = batch
+        if not metrics is None:
+            image = image.float().cuda()
+            label = label.squeeze().numpy()
 
-            if not metrics is None:
-                label = label.squeeze().numpy()
-                image = image.float().cuda()
-
+            with torch.no_grad():
                 pred = model(image)
-                _, pred = torch.max(interp(nn.functional.softmax(pred, dim=1)).detach(), 1)
-                pred = pred.squeeze().data.cpu().numpy()
 
-                # Return TP, FP, TN, FN for each batch
-                TP, FP, TN, FN, _ = eval_image(pred.reshape(-1), label.reshape(-1), args.num_classes)
+            _, pred = torch.max(interp(nn.functional.softmax(pred, dim=1)).detach(), 1)
+            pred = pred.squeeze().data.cpu().numpy()
 
-                # Calculating for all of batch
-                TP_all += TP
-                FP_all += FP
-                TN_all += TN
-                FN_all += FN
+            # Return TP, FP, TN, FN for each batch
+            TP, FP, TN, FN, _ = eval_image(pred.reshape(-1), label.reshape(-1), args.num_classes)
 
-                y_true_all.append(label.reshape(-1))
-                y_pred_all.append(pred.reshape(-1))
+            # Calculating for all of batch
+            TP_all += TP
+            FP_all += FP
+            TN_all += TN
+            FN_all += FN
 
-            else:
-                image = image.cuda()
-                label = label.cuda().long()
+            y_true_all.append(label.reshape(-1))
+            y_pred_all.append(pred.reshape(-1))
 
-                pred = interp(model(image))
-                loss = criterion(pred, label)
-                acc = accuracy(pred, label)
+        else:
+            image = image.cuda()
+            label = label.cuda().long()
 
-                losses.update(loss.item(), args.batch_size)
-                scores.update(acc.item(), args.batch_size)
+            with torch.no_grad():
+                pred = model(image)
+
+            pred_interp = interp(pred)
+            loss = criterion(pred_interp, label)
+            acc = accuracy(pred_interp, label)
+
+            losses.update(loss.item(), args.batch_size)
+            scores.update(acc.item(), args.batch_size)
 
     if not metrics is None:
         for i in range(args.num_classes):
             P[i] = TP_all[i] * 1.0 / (TP_all[i] + FP_all[i] + epsilon)
             R[i] = TP_all[i] * 1.0 / (TP_all[i] + FN_all[i] + epsilon)
-            Acc[i] = (TP_all[i] + TN_all[i]) / (TP_all[i] + TN_all[i] + FP_all[i] + FN_all[i])
-            Spec[i] = TN_all[i] / (TN_all[i] + FP_all[i])
             F1[i] = 2.0 * P[i] * R[i] / (P[i] + R[i] + epsilon)
 
-    if not metrics is None:
         log_other = OrderedDict([
-            ('acc_score', Acc),
             ('f1_score', F1),
             ('pre_score', P),
             ('rec_score', R),
-            ('spec_score', Spec),
             ('target', y_true_all),
             ('pred', y_pred_all),
         ])
@@ -255,7 +253,7 @@ def main():
     cudnn.benchmark = True
 
     # Spliting k-fold
-    kfold_split(num_fold=args.k_fold, test_image_number=int(get_size_dataset() / args.k_fold))
+    # kfold_split(num_fold=args.k_fold, test_image_number=int(get_size_dataset() / args.k_fold))
 
     # create model
     model = archs.__dict__[args.arch](args, args.num_classes)
@@ -265,8 +263,6 @@ def main():
     Pre_classes = []
     Rec_classes = []
     F1_classes = []
-    Acc_classes = []
-    Spec_classes = []
 
     for fold in range(args.k_fold):
         print("\nTraining on Fold %d" % fold)
@@ -305,16 +301,14 @@ def main():
         criterion = nn.CrossEntropyLoss(ignore_index=255)
 
         # implement model.optim_parameters(args) to handle different models' lr setting
-        # optimizer = optim.SGD(model_.parameters(args), lr=args.learning_rate, momentum=args.momentum,
-        #                       weight_decay=args.weight_decay)
-
-        optimizer = optim.Adam(model_.parameters(), lr=args.learning_rate, betas=(0.9, 0.98), eps=1e-09,
-                               weight_decay=args.weight_decay)
+        optimizer = optim.AdamW(model_.parameters(), lr=args.learning_rate,
+                                weight_decay=args.weight_decay, amsgrad=False)
 
         scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-5, max_lr=1e-3, cycle_momentum=False,
-                                                step_size_up=len(train_loader) * 8, mode='triangular2')
+                                                step_size_up=2000, step_size_down=None, mode='triangular2',
+                                                gamma=1.0)
 
-        # Dung de so sanh va luu cac trong so khi F1 > F1_best
+        # Dung de so sanh va luu cac trong so khi val_loss > val_loss_best
         val_loss_best = 10.0
 
         for epoch in range(args.epochs):
@@ -338,48 +332,43 @@ def main():
                   (epoch + 1, args.epochs, epoch_time, train_log['loss'], train_log['acc'], val_log['loss'],
                    val_log['acc']))
 
-        # Later to restore:
+            # Later to restore:
         model_.load_state_dict(torch.load(os.path.join(snapshot_dir, 'model_weight_best.pth')))
         val_log = validate(args, test_loader, model_, criterion, interp, metrics='all')
 
         Pre_classes = np.append(Pre_classes, val_log['pre_score'])
         Rec_classes = np.append(Rec_classes, val_log['rec_score'])
         F1_classes = np.append(F1_classes, val_log['f1_score'])
-        Acc_classes = np.append(Acc_classes, val_log['acc_score'])
-        Spec_classes = np.append(Spec_classes, val_log['spec_score'])
 
         print("\nResuts on fold %d ----------------------------------------------------------------" % fold)
 
         print(
-            '===> Non-Landslide [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
-            (val_log['acc_score'][0] * 100, val_log['pre_score'][0] * 100, val_log['rec_score'][0] * 100,
-             val_log['spec_score'][0] * 100, val_log['f1_score'][0] * 100))
+            '===> Non-Landslide [Pre, Rec, F1] = [%.2f, %.2f, %.2f]' %
+            (val_log['pre_score'][0] * 100, val_log['rec_score'][0] * 100, val_log['f1_score'][0] * 100))
 
         print(
-            '===> Landslide [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
-            (val_log['acc_score'][1] * 100, val_log['pre_score'][1] * 100, val_log['rec_score'][1] * 100,
-             val_log['spec_score'][1] * 100, val_log['f1_score'][1] * 100))
+            '===> Landslide [Pre, Rec, F1] = [%.2f, %.2f, %.2f]' %
+            (val_log['pre_score'][1] * 100, val_log['rec_score'][1] * 100, val_log['f1_score'][1] * 100))
 
-        print('===> Mean [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
-              (np.mean(val_log['acc_score']) * 100, np.mean(val_log['pre_score']) * 100,
-               np.mean(val_log['rec_score']) * 100, np.mean(val_log['spec_score']) * 100,
+        print('===> Mean [Pre, Rec, F1] = [%.2f, %.2f, %.2f]' %
+              (np.mean(val_log['pre_score']) * 100, np.mean(val_log['rec_score']) * 100,
                np.mean(val_log['f1_score']) * 100))
 
     print('\n\n----------------------------- For all folds ----------------------------------------\n')
 
-    print('===> Mean-Non-Landslide [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
-          (np.mean(Acc_classes[0:len(Acc_classes):2]) * 100, np.mean(Pre_classes[0:len(Pre_classes):2]) * 100,
-           np.mean(Rec_classes[0:len(Rec_classes):2]) * 100, np.mean(Spec_classes[0:len(Spec_classes):2]) * 100,
+    print('===> Mean-Non-Landslide [Pre, Rec, F1] = [%.2f, %.2f, %.2f]' %
+          (np.mean(Pre_classes[0:len(Pre_classes):2]) * 100,
+           np.mean(Rec_classes[0:len(Rec_classes):2]) * 100,
            np.mean(F1_classes[0:len(F1_classes):2]) * 100))
 
-    print('===> Mean-Landslide [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
-          (np.mean(Acc_classes[1:len(Acc_classes):2]) * 100, np.mean(Pre_classes[1:len(Pre_classes):2]) * 100,
-           np.mean(Rec_classes[1:len(Rec_classes):2]) * 100, np.mean(Spec_classes[1:len(Spec_classes):2]) * 100,
+    print('===> Mean-Landslide [Pre, Rec, F1] = [%.2f, %.2f, %.2f]' %
+          (np.mean(Pre_classes[1:len(Pre_classes):2]) * 100,
+           np.mean(Rec_classes[1:len(Rec_classes):2]) * 100,
            np.mean(F1_classes[1:len(F1_classes):2]) * 100))
 
-    print('===> Mean [Acc, Pre, Rec, Spec, F1] = [%.2f, %.2f, %.2f, %.2f, %.2f]' %
-          (np.mean(Acc_classes) * 100, np.mean(Pre_classes) * 100, np.mean(Rec_classes) * 100,
-           np.mean(Spec_classes) * 100, np.mean(F1_classes) * 100))
+    print('===> Mean [Pre, Rec, F1] = [%.2f, %.2f, %.2f]' %
+          (np.mean(Pre_classes) * 100, np.mean(Rec_classes) * 100,
+           np.mean(F1_classes) * 100))
 
     # # For plot confusion matrix
     # actual_classes = np.append(actual_classes, np.concatenate(val_log['target']).tolist())
