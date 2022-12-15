@@ -27,6 +27,30 @@ arch_names = archs.__dict__.keys()
 name_classes = ['Non-Landslide', 'Landslide']
 epsilon = 1e-14
 
+y_loss = {}  # loss history
+y_loss['train'] = []
+y_loss['val'] = []
+y_err = {}
+y_err['train'] = []
+y_err['val'] = []
+
+x_epoch = []
+fig = plt.figure(figsize=(10, 3))
+ax0 = fig.add_subplot(121, title="loss")
+ax1 = fig.add_subplot(122, title="top1err")
+
+
+def draw_curve(current_epoch):
+    x_epoch.append(current_epoch)
+    ax0.plot(x_epoch, y_loss['train'], label='train')
+    ax0.plot(x_epoch, y_loss['val'], label='val')
+    ax1.plot(x_epoch, y_err['train'], label='train')
+    ax1.plot(x_epoch, y_err['val'], label='val')
+    if current_epoch == 0:
+        ax0.legend()
+        ax1.legend()
+    fig.savefig(os.path.join('image/', 'train_curves.jpg'))
+
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -88,26 +112,14 @@ def get_arguments():
 
 train_transform = A.Compose(
     [
-        A.OneOf(
-            [
-                A.ShiftScaleRotate(shift_limit=0.2,
-                                   scale_limit=0.2,
-                                   rotate_limit=30,
-                                   p=0.5),
-                # A.OpticalDistortion(distort_limit=0.01,
-                #                     shift_limit=0.1,
-                #                     border_mode=cv2.BORDER_CONSTANT,
-                #                     value=0,
-                #                     p=0.5),
-                # A.GridDistortion(num_steps=5,
-                #                 border_mode=cv2.BORDER_CONSTANT,
-                #                 value=0,
-                #                 p=0.5)
-            ], p=1.0),
+        A.HorizontalFlip(),
 
-        A.VerticalFlip(p=0.3),
-        A.HorizontalFlip(p=0.3),
-        A.Flip(p=0.5)
+        A.VerticalFlip(),
+
+        A.ShiftScaleRotate(shift_limit=0.2,
+                           scale_limit=0.2,
+                           rotate_limit=30,
+                           p=0.5),
     ]
 )
 
@@ -115,6 +127,8 @@ train_transform = A.Compose(
 def train(args, train_loader, model, criterion, optimizer, scheduler, interp):
     losses = AverageMeter()
     scores = AverageMeter()
+    running_loss = 0.0
+    running_corrects = 0.0
 
     # model.train() tells your model that you are training the model. This helps inform layers such as Dropout
     # and BatchNorm, which are designed to behave differently during training and evaluation. For instance,
@@ -128,7 +142,6 @@ def train(args, train_loader, model, criterion, optimizer, scheduler, interp):
         image, label, _, _ = batch_data
         image = image.cuda()
         label = label.cuda().long()
-
         pred = interp(model(image))
 
         loss = criterion(pred, label)
@@ -141,11 +154,20 @@ def train(args, train_loader, model, criterion, optimizer, scheduler, interp):
         loss.backward()
         optimizer.step()
 
+        # statistics
+        running_loss += loss.item()
+        running_corrects += acc.item()
+
     scheduler.step()
+
+    epoch_loss = running_loss / len(train_loader)
+    epoch_acc = running_corrects / len(train_loader)
 
     log = OrderedDict([
         ('loss', losses.avg),
         ('acc', scores.avg),
+        ('epoch_loss', epoch_loss),
+        ('epoch_acc', epoch_acc),
     ])
 
     return log
@@ -167,6 +189,8 @@ def validate(args, val_loader, model, criterion, interp, metrics=None):
     else:
         losses = AverageMeter()
         scores = AverageMeter()
+        running_loss = 0.0
+        running_corrects = 0.0
 
     for _, batch in enumerate(val_loader):
         image, label, _, name = batch
@@ -207,6 +231,10 @@ def validate(args, val_loader, model, criterion, interp, metrics=None):
             losses.update(loss.item(), args.batch_size)
             scores.update(acc.item(), args.batch_size)
 
+            # statistics
+            running_loss += loss.item()
+            running_corrects += acc.item()
+
     if not metrics is None:
         for i in range(args.num_classes):
             P[i] = TP_all[i] * 1.0 / (TP_all[i] + FP_all[i] + epsilon)
@@ -223,9 +251,14 @@ def validate(args, val_loader, model, criterion, interp, metrics=None):
 
         return log_other
     else:
+        epoch_loss = running_loss / len(val_loader)
+        epoch_acc = running_corrects / len(val_loader)
+
         log = OrderedDict([
             ('loss', losses.avg),
             ('acc', scores.avg),
+            ('epoch_loss', epoch_loss),
+            ('epoch_acc', epoch_acc),
         ])
 
         return log
@@ -286,7 +319,7 @@ def main():
 
         # <torch.utils.data.dataloader.DataLoader object at 0x7fa2ff5af390>
         train_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.train_list,
-                                                        transform=None,
+                                                        transform=train_transform,
                                                         set_mask='masked'),
                                        batch_size=args.batch_size, shuffle=True,
                                        num_workers=args.num_workers, pin_memory=True)
@@ -322,6 +355,14 @@ def main():
 
             # Gather data and report
             epoch_time = time.time() - tem_time
+
+            y_loss['train'].append(train_log['epoch_loss'])
+            y_loss['val'].append(val_log['epoch_loss'])
+            y_err['train'].append(1.0 - train_log['epoch_acc'])
+            y_err['val'].append(1.0 - val_log['epoch_acc'])
+
+            # deep copy the model
+            draw_curve(epoch)
 
             if val_log['loss'] < val_loss_best:
                 val_loss_best = val_log['loss']
