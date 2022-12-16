@@ -35,21 +35,25 @@ y_err['train'] = []
 y_err['val'] = []
 
 x_epoch = []
-fig = plt.figure(figsize=(10, 3))
+fig = plt.figure(figsize=(12, 5))
 ax0 = fig.add_subplot(121, title="loss")
 ax1 = fig.add_subplot(122, title="top1err")
 
 
 def draw_curve(current_epoch):
-    x_epoch.append(current_epoch)
-    ax0.plot(x_epoch, y_loss['train'], linewidth=1.0, label='train')
-    ax0.plot(x_epoch, y_loss['val'], linewidth=1.0, label='val')
-    ax1.plot(x_epoch, y_err['train'], linewidth=1.0, label='train')
-    ax1.plot(x_epoch, y_err['val'], linewidth=1.0, label='val')
+    x_epoch.append(current_epoch + 1)
+    ax0.plot(x_epoch, y_loss['train'], 'b-', linewidth=1.0, label='train')
+    ax0.plot(x_epoch, y_loss['val'], '-r', linewidth=1.0, label='val')
+    ax0.set_xlabel("epoch")
+    ax0.set_ylabel("loss")
+    ax1.plot(x_epoch, y_err['train'], '-b', linewidth=1.0, label='train')
+    ax1.plot(x_epoch, y_err['val'], '-r', linewidth=1.0, label='val')
+    ax1.set_xlabel("epoch")
+    ax1.set_ylabel("error")
     if current_epoch == 0:
-        ax0.legend()
-        ax1.legend()
-    fig.savefig(os.path.join('image/', 'train_curves.jpg'), dpi=2400)
+        ax0.legend(loc="upper right")
+        ax1.legend(loc="upper right")
+    fig.savefig(os.path.join('image/', 'train_curves.jpg'), dpi=600)
 
 
 def get_arguments():
@@ -112,14 +116,13 @@ def get_arguments():
 
 train_transform = A.Compose(
     [
-        A.HorizontalFlip(),
-
-        A.VerticalFlip(),
-
-        A.ShiftScaleRotate(shift_limit=0.2,
-                           scale_limit=0.2,
-                           rotate_limit=30,
-                           p=0.5),
+        # A.HorizontalFlip(),
+        # A.VerticalFlip(),
+        # A.ShiftScaleRotate(),
+        A.CoarseDropout(),
+        A.MaskDropout(),
+        A.PixelDropout(),
+        A.Rotate(),
     ]
 )
 
@@ -319,7 +322,7 @@ def main():
 
         # <torch.utils.data.dataloader.DataLoader object at 0x7fa2ff5af390>
         train_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.train_list,
-                                                        transform=None,
+                                                        transform=train_transform,
                                                         set_mask='masked'),
                                        batch_size=args.batch_size, shuffle=True,
                                        num_workers=args.num_workers, pin_memory=True)
@@ -337,8 +340,10 @@ def main():
         optimizer = optim.Adam(model_.parameters(), lr=args.learning_rate,
                                weight_decay=args.weight_decay, amsgrad=False)
 
-        scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-5, max_lr=1e-3, cycle_momentum=False,
-                                                step_size_up=5, step_size_down=None, mode='triangular2')
+        # scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-5, max_lr=1e-3, cycle_momentum=False,
+        #                                         step_size_up=10, step_size_down=None, mode='exp_range')
+
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=0)
 
         # Dung de so sanh va luu cac trong so khi val_loss > val_loss_best
         val_loss_best = 10.0
