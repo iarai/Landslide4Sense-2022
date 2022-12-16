@@ -42,10 +42,10 @@ ax1 = fig.add_subplot(122, title="top1err")
 
 def draw_curve(current_epoch):
     x_epoch.append(current_epoch)
-    ax0.plot(x_epoch, y_loss['train'], label='train')
-    ax0.plot(x_epoch, y_loss['val'], label='val')
-    ax1.plot(x_epoch, y_err['train'], label='train')
-    ax1.plot(x_epoch, y_err['val'], label='val')
+    ax0.plot(x_epoch, y_loss['train'], linewidth=1.0, label='train')
+    ax0.plot(x_epoch, y_loss['val'], linewidth=1.0, label='val')
+    ax1.plot(x_epoch, y_err['train'], linewidth=1.0, label='train')
+    ax1.plot(x_epoch, y_err['val'], linewidth=1.0, label='val')
     if current_epoch == 0:
         ax0.legend()
         ax1.legend()
@@ -338,7 +338,7 @@ def main():
                                weight_decay=args.weight_decay, amsgrad=False)
 
         scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-5, max_lr=1e-3, cycle_momentum=False,
-                                                step_size_up=1, step_size_down=None, mode='triangular2')
+                                                step_size_up=5, step_size_down=None, mode='triangular2')
 
         # Dung de so sanh va luu cac trong so khi val_loss > val_loss_best
         val_loss_best = 10.0
