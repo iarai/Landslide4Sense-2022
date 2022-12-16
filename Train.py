@@ -49,7 +49,7 @@ def draw_curve(current_epoch):
     if current_epoch == 0:
         ax0.legend()
         ax1.legend()
-    fig.savefig(os.path.join('image/', 'train_curves.jpg'))
+    fig.savefig(os.path.join('image/', 'train_curves.jpg'), dpi=2400)
 
 
 def get_arguments():
