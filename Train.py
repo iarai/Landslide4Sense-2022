@@ -286,7 +286,7 @@ def main():
     cudnn.benchmark = True
 
     # Spliting k-fold
-    # kfold_split(num_fold=args.k_fold, test_image_number=int(get_size_dataset() / args.k_fold))
+    kfold_split(num_fold=args.k_fold, test_image_number=int(get_size_dataset() / args.k_fold))
 
     # create model
     model = archs.__dict__[args.arch](args, args.num_classes)
@@ -319,7 +319,7 @@ def main():
 
         # <torch.utils.data.dataloader.DataLoader object at 0x7fa2ff5af390>
         train_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.train_list,
-                                                        transform=train_transform,
+                                                        transform=None,
                                                         set_mask='masked'),
                                        batch_size=args.batch_size, shuffle=True,
                                        num_workers=args.num_workers, pin_memory=True)
@@ -334,12 +334,11 @@ def main():
         criterion = nn.CrossEntropyLoss(ignore_index=255)
 
         # implement model.optim_parameters(args) to handle different models' lr setting
-        optimizer = optim.AdamW(model_.parameters(), lr=args.learning_rate,
-                                weight_decay=args.weight_decay, amsgrad=False)
+        optimizer = optim.Adam(model_.parameters(), lr=args.learning_rate,
+                               weight_decay=args.weight_decay, amsgrad=False)
 
         scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-5, max_lr=1e-3, cycle_momentum=False,
-                                                step_size_up=2000, step_size_down=None, mode='triangular2',
-                                                gamma=1.0)
+                                                step_size_up=1, step_size_down=None, mode='triangular2')
 
         # Dung de so sanh va luu cac trong so khi val_loss > val_loss_best
         val_loss_best = 10.0
@@ -373,27 +372,27 @@ def main():
                   (epoch + 1, args.epochs, epoch_time, train_log['loss'], train_log['acc'], val_log['loss'],
                    val_log['acc']))
 
-            # Later to restore:
+        # Later to restore
         model_.load_state_dict(torch.load(os.path.join(snapshot_dir, 'model_weight_best.pth')))
-        val_log = validate(args, test_loader, model_, criterion, interp, metrics='all')
+        val_log_test = validate(args, test_loader, model_, criterion, interp, metrics='all')
 
-        Pre_classes = np.append(Pre_classes, val_log['pre_score'])
-        Rec_classes = np.append(Rec_classes, val_log['rec_score'])
-        F1_classes = np.append(F1_classes, val_log['f1_score'])
+        Pre_classes = np.append(Pre_classes, val_log_test['pre_score'])
+        Rec_classes = np.append(Rec_classes, val_log_test['rec_score'])
+        F1_classes = np.append(F1_classes, val_log_test['f1_score'])
 
         print("\nResuts on fold %d ----------------------------------------------------------------" % fold)
 
         print(
             '===> Non-Landslide [Pre, Rec, F1] = [%.2f, %.2f, %.2f]' %
-            (val_log['pre_score'][0] * 100, val_log['rec_score'][0] * 100, val_log['f1_score'][0] * 100))
+            (val_log_test['pre_score'][0] * 100, val_log_test['rec_score'][0] * 100, val_log_test['f1_score'][0] * 100))
 
         print(
             '===> Landslide [Pre, Rec, F1] = [%.2f, %.2f, %.2f]' %
-            (val_log['pre_score'][1] * 100, val_log['rec_score'][1] * 100, val_log['f1_score'][1] * 100))
+            (val_log_test['pre_score'][1] * 100, val_log_test['rec_score'][1] * 100, val_log_test['f1_score'][1] * 100))
 
         print('===> Mean [Pre, Rec, F1] = [%.2f, %.2f, %.2f]' %
-              (np.mean(val_log['pre_score']) * 100, np.mean(val_log['rec_score']) * 100,
-               np.mean(val_log['f1_score']) * 100))
+              (np.mean(val_log_test['pre_score']) * 100, np.mean(val_log_test['rec_score']) * 100,
+               np.mean(val_log_test['f1_score']) * 100))
 
     print('\n\n----------------------------- For all folds ----------------------------------------\n')
 
