@@ -80,9 +80,9 @@ class OutConv(nn.Module):
         return self.conv(x)
 
 
-class unet(nn.Module):
+class Unet(nn.Module):
     def __init__(self, n_classes, n_channels=14, bilinear=True):
-        super(unet, self).__init__()
+        super(Unet, self).__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.bilinear = bilinear

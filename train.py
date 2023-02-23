@@ -36,7 +36,7 @@ def get_arguments():
 
     parser.add_argument("--model_module", type=str, default='modules.unet',
                         help='model module to import')
-    parser.add_argument("--model_name", type=str, default='unet',
+    parser.add_argument("--model_name", type=str, default='Unet',
                         help='model name in given module')
     parser.add_argument("--input_size", type=str, default='128,128',
                         help="comma-separated string with height and width of images.")
