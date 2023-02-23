@@ -201,7 +201,7 @@ def validate(args, val_loader, model, criterion, interp, metrics=None):
             recall[i] = tp_all[i] * 1.0 / (tp_all[i] + fn_all[i] + epsilon)
             f1[i] = 2.0 * precision[i] * recall[i] / (precision[i] + recall[i] + epsilon)
 
-        log_other = OrderedDict([
+        log = OrderedDict([
             ('f1_score', f1),
             ('pre_score', precision),
             ('rec_score', recall),
@@ -209,7 +209,7 @@ def validate(args, val_loader, model, criterion, interp, metrics=None):
             ('pred', y_pred_all),
         ])
 
-        return log_other
+        return log
     else:
         epoch_loss = running_loss / len(val_loader)
         epoch_acc = running_corrects / len(val_loader)
