@@ -29,7 +29,17 @@ def get_size_dataset():
     return count
 
 
-def draw_curve(current_epoch, x_epoch, y_loss, y_err, ax0, ax1, fig):
+def import_name(modulename, name):
+    """ Import a named object from a module in the context of this function.
+    """
+    try:
+        module = __import__(modulename, globals(), locals(), [name])
+    except ImportError:
+        return None
+    return vars(module)[name]
+
+
+def draw_curve(current_epoch, x_epoch, y_loss, y_err, fig, ax0, ax1):
     x_epoch.append(current_epoch + 1)
     ax0.plot(x_epoch, y_loss['train'], 'b-', linewidth=1.0, label='train')
     ax0.plot(x_epoch, y_loss['val'], '-r', linewidth=1.0, label='val')

@@ -4,8 +4,8 @@ import torch
 import torch.nn as nn
 from torch.utils import data
 import torch.backends.cudnn as cudnn
-from dataset.landslide_dataset import LandslideDataSet
-from model.Networks_unet import unet
+from dataset.dataset import LandslideDataSet
+from modules.unet import unet
 import h5py
 
 name_classes = ['Non-Landslide', 'Landslide']
@@ -27,8 +27,8 @@ def get_arguments():
 
     parser.add_argument("--data_dir", type=str, default='/scratch/Land4Sense_Competition_h5/',
                         help="dataset path.")
-    parser.add_argument("--model_module", type=str, default='model.Networks',
-                        help='model module to import')
+    parser.add_argument("--model_module", type=str, default='modules.Networks',
+                        help='modules module to import')
     parser.add_argument("--model_name", type=str, default='unet',
                         help='modle name in given module')
     parser.add_argument("--test_list", type=str, default='./dataset/test.txt',
@@ -44,7 +44,7 @@ def get_arguments():
     parser.add_argument("--snapshot_dir", type=str, default='./test_map/',
                         help="where to save predicted maps.")
     parser.add_argument("--restore_from", type=str, default='./exp/batch3500_F1_7396.pth',
-                        help="trained model.")
+                        help="trained modules.")
 
     return parser.parse_args()
 
