@@ -1,3 +1,4 @@
+import argparse
 import os
 import shutil
 import random
@@ -5,7 +6,46 @@ import glob2
 import numpy as np
 
 
-def kfold_split(num_fold=10, test_image_number=380):
+def str2bool(v):
+    if v.lower() in ['true', 1]:
+        return True
+    elif v.lower() in ['false', 0]:
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
+
+def count_params(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+
+def get_size_dataset():
+    dir_path = os.path.join(os.getcwd(), 'data/img')
+    count = 0
+
+    for path in os.listdir(dir_path):
+        if os.path.isfile(os.path.join(dir_path, path)):
+            count += 1
+    return count
+
+
+def draw_curve(current_epoch, x_epoch, y_loss, y_err, ax0, ax1, fig):
+    x_epoch.append(current_epoch + 1)
+    ax0.plot(x_epoch, y_loss['train'], 'b-', linewidth=1.0, label='train')
+    ax0.plot(x_epoch, y_loss['val'], '-r', linewidth=1.0, label='val')
+    ax0.set_xlabel("epoch")
+    ax0.set_ylabel("loss")
+    ax1.plot(x_epoch, y_err['train'], '-b', linewidth=1.0, label='train')
+    ax1.plot(x_epoch, y_err['val'], '-r', linewidth=1.0, label='val')
+    ax1.set_xlabel("epoch")
+    ax1.set_ylabel("error")
+    if current_epoch == 0:
+        ax0.legend(loc="upper right")
+        ax1.legend(loc="upper right")
+    fig.savefig(os.path.join('image/', 'train_curves.jpg'), dpi=600)
+
+
+def split_fold(num_fold=10, test_image_number=380):
     print("Splitting for k-fold with %d fold" % num_fold)
     data_root = os.path.join(os.getcwd(), 'data')
 
