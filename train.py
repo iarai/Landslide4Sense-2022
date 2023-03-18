@@ -60,7 +60,8 @@ def parse_args():
                         help="val list file.")
     parser.add_argument("--test_list", type=str, default='./dataset/test.txt',
                         help="test list file.")
-
+    parser.add_argument('--dataset', dest='dataset', type=str, default='Landslide4Sense',
+                      help='training dataset')                        
     parser.add_argument("--input_size", type=str, default='128,128',
                         help="comma-separated string with height and width of images.")
     parser.add_argument("--num_classes", type=int, default=2,
@@ -118,6 +119,12 @@ def parse_args():
     parser.add_argument('--checkpoint', dest='checkpoint', type=int, default=0,
                         help='checkpoint to load model')
 
+    parser.add_argument('--checkname', dest='checkname', type=str, default=None,
+                        help='checkname')
+
+    # configure validation
+    parser.add_argument('--no_val', dest='no_val', type=bool, default=False,
+                        help='not do validation')
 
     return parser.parse_args()
 
@@ -145,8 +152,8 @@ class Trainer(object):
         self.args = args
 
         # Define Saver
-        # self.saver = Saver(self.args)
-        # self.saver.save_experiment_config()
+        self.saver = Saver(self.args)
+        self.saver.save_experiment_config()
 
         # Define Dataloader
         self.train_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.train_list,
@@ -241,7 +248,7 @@ class Trainer(object):
         self.evaluator.reset()
         val_loss = 0.0
 
-        for batch_id, batch in enumerate(self.val_loader):
+        for batch_id, batch in enumerate(self.test_loader):
             image, target, _, _ = batch
 
             if self.args.cuda:
@@ -292,6 +299,9 @@ def main():
 
     if args.save_dir is None:
         args.save_dir = os.path.join(os.getcwd(), 'run')
+
+    if args.checkname is None:
+        args.checkname = 'model_' + str(args.model_name)
 
     if args.cuda and args.mGPUs:
         try:
