@@ -46,7 +46,7 @@ class UNet(nn.Module):
 
 
 class NestedUNet(nn.Module):
-    def __init__(self, n_channels=14, n_classes=2, deepsupervision=True, bilinear=True):
+    def __init__(self, n_channels=14, n_classes=2, deepsupervision=False, bilinear=True):
         super().__init__()
 
         self.n_channels = n_channels
