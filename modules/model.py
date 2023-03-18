@@ -46,13 +46,13 @@ class UNet(nn.Module):
 
 
 class NestedUNet(nn.Module):
-    def __init__(self, cfg):
+    def __init__(self, n_channels=14, n_classes=2, deepsupervision=True, bilinear=True):
         super().__init__()
 
-        self.n_channels = cfg.n_channels
-        self.n_classes = cfg.n_classes
-        self.deepsupervision = cfg.deepsupervision
-        self.bilinear = cfg.bilinear
+        self.n_channels = n_channels
+        self.n_classes = n_classes
+        self.deepsupervision = deepsupervision
+        self.bilinear = bilinear
 
         nb_filter = [32, 64, 128, 256, 512]
 
