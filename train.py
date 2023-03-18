@@ -1,6 +1,13 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import argparse
+import os
 import time
 import copy as cp
+
+import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils import data
@@ -8,9 +15,15 @@ import torch.backends.cudnn as cudnn
 import albumentations as A
 from collections import OrderedDict
 import matplotlib.pyplot as plt
+from torch.autograd import Variable
+from torch.nn import functional as F
 
+from dataset import make_data_loader
 from utils.metrics import *
-from utils.helpers import *
+from utils.loss import SegmentationLosses
+from utils import Kpar
+from utils.helpers import import_name, get_size_dataset, split_fold, get_train_test_list
+from utils.saver import Saver
 from dataset.dataset import LandslideDataSet
 
 name_classes = ['Non-Landslide', 'Landslide']
@@ -25,19 +38,29 @@ ax0 = fig.add_subplot(121, title="loss")
 ax1 = fig.add_subplot(122, title="top1err")
 
 
-def get_arguments():
+def parse_args():
     """Parse all the arguments provided from the CLI.
 
         Returns:
           A list of parsed arguments.
     """
 
-    parser = argparse.ArgumentParser(description="Baseline method for Land4Seen")
+    parser = argparse.ArgumentParser(description="Train a Semantic Segmentation network")
 
     parser.add_argument("--model_module", type=str, default='modules.unet',
                         help='model module to import')
     parser.add_argument("--model_name", type=str, default='Unet',
                         help='model name in given module')
+
+    parser.add_argument("--data_dir", type=str, default='./TrainData/',
+                        help="dataset path.")
+    parser.add_argument("--train_list", type=str, default='./dataset/train.txt',
+                        help="training list file.")
+    parser.add_argument("--val_list", type=str, default='./dataset/valid.txt',
+                        help="val list file.")
+    parser.add_argument("--test_list", type=str, default='./dataset/test.txt',
+                        help="test list file.")
+
     parser.add_argument("--input_size", type=str, default='128,128',
                         help="comma-separated string with height and width of images.")
     parser.add_argument("--num_classes", type=int, default=2,
@@ -47,29 +70,62 @@ def get_arguments():
 
     parser.add_argument('--epochs', default=100, type=int, metavar='N',
                         help='number of total epochs to run')
-    parser.add_argument("--learning_rate", type=float, default=2.5e-4,
-                        help="base learning rate for training with polynomial decay.")
-    parser.add_argument("--weight_decay", type=float, default=5e-4,
-                        help="regularisation parameter for L2-loss.")
 
     parser.add_argument("--num_workers", type=int, default=0,
                         help="number of workers for multithread data-loading.")
-    parser.add_argument("--gpu_id", type=int, default=0,
-                        help="gpu id in the training.")
 
-    parser.add_argument("--data_dir", type=str, default='./TrainData/',
-                        help="dataset path.")
-    parser.add_argument("--train_list", type=str, default='./dataset/train.txt',
-                        help="training list file.")
-    parser.add_argument("--test_list", type=str, default='./dataset/test.txt',
-                        help="test list file.")
+    # cuda
+    parser.add_argument('--cuda', dest='cuda', type=bool, default=True,
+                        help='whether use CUDA')
+
+    # multiple GPUs
+    parser.add_argument('--mGPUs', dest='mGPUs', type=bool, default=False,
+                        help='whether use multiple GPUs')
+    parser.add_argument('--gpu_ids', dest='gpu_ids', type=str, default='0',
+                        help='use which gpu to train, must be a comma-separated list of integers only (default=0)')
+
+    parser.add_argument("--save_dir", type=str, default='./exp/',
+                        help="where to save snapshots of the modules.")
+
     parser.add_argument("--k_fold", type=int, default=10,
                         help="number of fold for k-fold.")
 
-    parser.add_argument("--snapshot_dir", type=str, default='./exp/',
-                        help="where to save snapshots of the modules.")
+    # config optimization
+    parser.add_argument('--opt', dest='optimizer', type=str, default='adam',
+                        help='training optimizer')
+    parser.add_argument('--lr', dest='lr', type=float, default=1e-3,
+                        help='starting learning rate')
+    parser.add_argument('--weight_decay', dest='weight_decay', type=float, default=1e-5,
+                        help='weight_decay')
+    parser.add_argument('--lr_decay_step', dest='lr_decay_step', type=int, default=50,
+                        help='step to do learning rate decay, uint is epoch')
+    parser.add_argument('--lr_decay_gamma', dest='lr_decay_gamma', type=float, default=1e-1,
+                        help='learning rate decay ratio')
+
+    # set training session
+    parser.add_argument('--s', dest='session', type=int, default=1,
+                        help='training session')
+
+    # resume trained model
+    parser.add_argument('--r', dest='resume', type=bool, default=False,
+                        help='resume checkpoint or not')
+    parser.add_argument('--checksession', dest='checksession', type=int, default=1,
+                        help='checksession to load model')
+    parser.add_argument('--checkepoch', dest='checkepoch', type=int, default=1,
+                        help='checkepoch to load model')
+    parser.add_argument('--checkpoint', dest='checkpoint', type=int, default=0,
+                        help='checkpoint to load model')
+
+    # configure validation
+    parser.add_argument('--no_val', dest='no_val', type=bool, default=False,
+                        help='not do validation')
 
     return parser.parse_args()
+
+
+def adjust_learning_rate(optimizer, decay=0.1):
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = decay * param_group['lr']
 
 
 train_transform = A.Compose(
@@ -85,178 +141,179 @@ train_transform = A.Compose(
 )
 
 
-def train(args, train_loader, model, criterion, optimizer, scheduler, interp):
-    losses = AverageMeter()
-    scores = AverageMeter()
-    running_loss = 0.0
-    running_corrects = 0.0
+class Trainer(object):
+    def __init__(self, args):
+        self.args = args
 
-    # modules.train() tells your modules that you are training the modules. This helps inform layers such as Dropout
-    # and BatchNorm, which are designed to behave differently during training and evaluation. For instance,
-    # in training mode, BatchNorm updates a moving average on each new batch;
-    # whereas, for evaluation mode, these updates are frozen.
-    model.train()
+        # Define Saver
+        self.saver = Saver(self.args)
+        self.saver.save_experiment_config()
 
-    for batch_id, batch_data in enumerate(train_loader):
-        optimizer.zero_grad()
+        # Define Dataloader
+        self.train_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.train_list,
+                                                             transform=train_transform,
+                                                             set_mask='masked'),
+                                            batch_size=args.batch_size, shuffle=True,
+                                            num_workers=args.num_workers, pin_memory=True)
 
-        image, label, _, _ = batch_data
-        image = image.cuda()
-        label = label.cuda().long()
-        pred = interp(model(image))
+        self.test_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.test_list, set_mask='masked'),
+                                           batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers,
+                                           pin_memory=True)
 
-        loss = criterion(pred, label)
-        acc = accuracy(pred, label)
+        # Define network
+        model_import = import_name(args.model_module, args.model_name)
+        model = model_import(n_classes=args.num_classes)
 
-        losses.update(loss.item(), args.batch_size)
-        scores.update(acc.item(), args.batch_size)
+        # Define Optimizer
+        self.lr = self.args.lr
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        if args.optimizer == 'adam':
+            self.lr = self.lr * 0.1
+            opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        elif args.optimizer == 'sgd':
+            opt = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0, weight_decay=args.weight_decay)
 
-        # statistics
-        running_loss += loss.item()
-        running_corrects += acc.item()
+        # Define criterion
+        self.criterion = SegmentationLosses(weight=None, cuda=self.args.cuda).build_loss(mode='ce')
 
-    scheduler.step()
+        self.model = model
+        self.optimizer = opt
 
-    epoch_loss = running_loss / len(train_loader)
-    epoch_acc = running_corrects / len(train_loader)
+        # Define Evaluator
+        self.evaluator = Evaluator(self.args.num_class)
 
-    log = OrderedDict([
-        ('loss', losses.avg),
-        ('acc', scores.avg),
-        ('epoch_loss', epoch_loss),
-        ('epoch_acc', epoch_acc),
-    ])
+        # multiple mGPUs
+        if self.args.mGPUs:
+            self.model = torch.nn.DataParallel(self.model, device_ids=self.args.gpu_ids)
 
-    return log
+        # Using cuda
+        if self.args.cuda:
+            self.model = self.model.cuda()
 
+        # Resuming checkpoint
+        self.best_pred = -np.Inf
+        self.lr_stage = [68, 93]
+        self.lr_stage_ind = 0
 
-def validate(args, val_loader, model, criterion, interp, metrics=None):
-    model.eval()
+        def training(self, epoch, kbar):
+            train_loss = 0.0
+            self.model.train()
 
-    tp_all = np.zeros((args.num_classes, 1))
-    fp_all = np.zeros((args.num_classes, 1))
-    tn_all = np.zeros((args.num_classes, 1))
-    fn_all = np.zeros((args.num_classes, 1))
-    precision = np.zeros((args.num_classes, 1))
-    recall = np.zeros((args.num_classes, 1))
-    f1 = np.zeros((args.num_classes, 1))
-    y_true_all = []
-    y_pred_all = []
+            if self.lr_stage_ind > 1 and epoch % (self.lr_stage[self.lr_stage_ind]) == 0:
+                adjust_learning_rate(self.optimizer, self.args.lr_decay_gamma)
+                self.lr *= self.args.lr_decay_gamma
+                self.lr_stage_ind += 1
 
-    losses = AverageMeter()
-    scores = AverageMeter()
-    running_loss = 0.0
-    running_corrects = 0.0
+            for batch_id, batch in enumerate(self.train_loader):
+                image, target, _, _ = batch
 
-    for _, batch in enumerate(val_loader):
-        image, label, _, name = batch
+                if self.args.cuda:
+                    image, target = image.cuda(), target.cuda()
 
-        if metrics is not None:
-            image = image.float().cuda()
-            label = label.squeeze().numpy()
+                self.optimizer.zero_grad()
 
-            with torch.no_grad():
-                pred = model(image)
+                inputs = Variable(image)
+                labels = Variable(target)
 
-            _, pred = torch.max(interp(nn.functional.softmax(pred, dim=1)).detach(), 1)
-            pred = pred.squeeze().data.cpu().numpy()
+                outputs = self.model(inputs)
 
-            # Return TP, FP, TN, FN for each batch
-            tp, fp, tn, fn, _ = eval_image(pred.reshape(-1), label.reshape(-1), args.num_classes)
+                loss = self.criterion(outputs, labels.long())
+                # loss_train = loss.item()
+                loss.backward(torch.ones_like(loss))
+                self.optimizer.step()
+                train_loss += loss.item()
 
-            # Calculating for all of batch
-            tp_all += tp
-            fp_all += fp
-            tn_all += tn
-            fn_all += fn
+                kbar.update(batch_id, values=[("loss", train_loss)])
 
-            y_true_all.append(label.reshape(-1))
-            y_pred_all.append(pred.reshape(-1))
+            # save checkpoint every epoch
+            if self.args.no_val:
+                is_best = False
 
-        else:
-            image = image.cuda()
-            label = label.cuda().long()
+                self.saver.save_checkpoint(
+                    {
+                        'epoch': epoch + 1,
+                        'state_dict': self.model.state_dict(),
+                        'optimizer': self.optimizer.state_dict(),
+                        'best_pred': self.best_pred
+                    }, is_best)
 
-            with torch.no_grad():
-                pred = model(image)
+        def validation(self, epoch, kbar):
+            self.model.eval()
+            self.evaluator.reset()
+            val_loss = 0.0
 
-            pred_interp = interp(pred)
-            loss = criterion(pred_interp, label)
-            acc = accuracy(pred_interp, label)
+            for batch_id, batch in enumerate(self.val_loader):
+                image, target, _, _ = batch
 
-            losses.update(loss.item(), args.batch_size)
-            scores.update(acc.item(), args.batch_size)
+                if self.args.cuda:
+                    image, target = image.cuda(), target.cuda()
 
-            # statistics
-            running_loss += loss.item()
-            running_corrects += acc.item()
+                with torch.no_grad():
+                    output = self.model(image)
 
-    if metrics is not None:
-        for i in range(args.num_classes):
-            precision[i] = tp_all[i] * 1.0 / (tp_all[i] + fp_all[i] + epsilon)
-            recall[i] = tp_all[i] * 1.0 / (tp_all[i] + fn_all[i] + epsilon)
-            f1[i] = 2.0 * precision[i] * recall[i] / (precision[i] + recall[i] + epsilon)
+                loss = self.criterion(output, target.long())
+                val_loss += loss.item()
+                pred = output.data.cpu().numpy()
+                target = target.cpu().numpy()
+                pred = np.argmax(pred, axis=1)
 
-        log = OrderedDict([
-            ('f1_score', f1),
-            ('pre_score', precision),
-            ('rec_score', recall),
-            ('target', y_true_all),
-            ('pred', y_pred_all),
-        ])
+                # Add batch sample into evaluator
+                self.evaluator.add_batch(target, pred)
 
-        return log
-    else:
-        epoch_loss = running_loss / len(val_loader)
-        epoch_acc = running_corrects / len(val_loader)
+            # Fast test during the training
+            acc = self.evaluator.pixel_accuracy()
+            acc_class = self.evaluator.pixel_accuracy_class()
+            mIoU = self.evaluator.mean_intersection_over_union()
+            fwIoU = self.evaluator.frequency_weighted_intersection_over_union()
+            p = self.evaluator.precision()
+            r = self.evaluator.recall()
+            f1 = self.evaluator.f1()
 
-        log = OrderedDict([
-            ('loss', losses.avg),
-            ('acc', scores.avg),
-            ('epoch_loss', epoch_loss),
-            ('epoch_acc', epoch_acc),
-        ])
+            kbar.add(1, values=[("val_loss", val_loss), ("val_acc", acc),
+                                ('acc_class', acc_class), ('mIoU', mIoU),
+                                ('fwIoU', fwIoU), ('precision', p[1]),
+                                ('recall', r[1]), ('f1', f1[1])])
 
-        return log
+            new_pred = mIoU
+
+            if new_pred > self.best_pred:
+                is_best = True
+                self.best_pred = new_pred
+                self.saver.save_checkpoint(
+                    {
+                        'epoch': epoch + 1,
+                        'state_dict': self.model.state_dict(),
+                        'optimizer': self.optimizer.state_dict(),
+                        'best_pred': self.best_pred
+                    }, is_best)
 
 
 def main():
-    """Create the modules and start the training."""
-    args = get_arguments()
+    args = parse_args()
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
+    if args.save_dir is None:
+        args.save_dir = os.path.join(os.getcwd(), 'run')
 
-    # get size of images (128, 128)
-    w, h = map(int, args.input_size.split(','))
-    input_size = (w, h)
+    if args.checkname is None:
+        args.checkname = 'fpn-' + str(args.net)
 
-    # print('Config -----')
-    # for arg in vars(args):
-    #     print('%s: %s' % (arg, getattr(args, arg)))
-    # print('------------')
+    if args.cuda and args.mGPUs:
+        try:
+            args.gpu_ids = [int(s) for s in args.gpu_ids.split(',')]
+        except ValueError:
+            raise ValueError('Argument --gpu_ids must be a comma-separated list of integer only')
 
-    # enables cudnn for some operations such as conv layers and RNNs, which can yield a significant speedup.
-    cudnn.enabled = True
+    if args.batch_size is None:
+        args.batch_size = 4 * len(args.gpu_ids)
 
-    # set True to speed up constant image size inference
-    cudnn.benchmark = True
+    if args.lr is None:
+        lrs = {
+            'Landslide4Sense': 0.01,
+        }
+        args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
 
     # Splitting k-fold
-    split_fold(num_fold=args.k_fold, test_image_number=int(get_size_dataset() / args.k_fold))
-
-    # create modules
-    model_import = import_name(args.model_module, args.model_name)
-    model = model_import(n_classes=args.num_classes)
-
-    # actual_classes = np.empty([0], dtype=int)
-    # predicted_classes = np.empty([0], dtype=int)
-    pre_classes = []
-    rec_classes = []
-    f1_classes = []
+    split_fold(num_fold=args.k_fold, test_image_number=int(get_size_dataset('./data/img') / args.k_fold))
 
     for fold in range(args.k_fold):
         print("\nTraining on fold %d" % fold)
@@ -265,129 +322,25 @@ def main():
         get_train_test_list(fold)
 
         # create snapshots directory
-        snapshot_dir = args.snapshot_dir + "fold" + str(fold)
+        snapshot_dir = args.save_dir + "fold" + str(fold)
         if not os.path.exists(snapshot_dir):
             os.makedirs(snapshot_dir)
 
+        trainer = Trainer(args)
+
         # Takes a local copy of the machine learning algorithm (modules) to avoid changing the one passed in
-        model_ = cp.deepcopy(model)
+        trainer_ = cp.deepcopy(trainer)
 
-        # send your modules to the "current device"
-        model_ = model_.cuda(args.gpu_id)
+        train_per_epoch = np.ceil(get_size_dataset("./data/TrainData/" + str(fold) + "/train/img/") / args.batch_size)
 
-        # resize picture
-        interp = nn.Upsample(size=(input_size[1], input_size[0]), mode='bilinear', align_corners=True)
+        for epoch in range(trainer_.args.start_epoch, trainer_.args.epochs):
+            kbar = Kpar.Kbar(target=train_per_epoch, epoch=epoch, num_epochs=args.epochs, width=25,
+                             always_stateful=False)
 
-        # <torch.utils.data.dataloader.DataLoader object at 0x7fa2ff5af390>
-        train_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.train_list,
-                                                        transform=train_transform,
-                                                        set_mask='masked'),
-                                       batch_size=args.batch_size, shuffle=True,
-                                       num_workers=args.num_workers, pin_memory=True)
+            trainer_.training(epoch, kbar)
 
-        # <torch.utils.data.dataloader.DataLoader object at 0x7f780a0537d0>
-        test_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.test_list, set_mask='masked'),
-                                      batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers,
-                                      pin_memory=True)
-
-        # computes the cross entropy loss between input logit and target. the dataset background label is 255,
-        # so we ignore the background when calculating the cross entropy
-        criterion = nn.CrossEntropyLoss(ignore_index=255)
-
-        # implement modules.optim_parameters(args) to handle different models' lr setting
-        optimizer = optim.Adam(model_.parameters(), lr=args.learning_rate,
-                               weight_decay=args.weight_decay, amsgrad=False)
-
-        # scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-5, max_lr=1e-3, cycle_momentum=False,
-        #                                         step_size_up=10, step_size_down=None, mode='exp_range')
-
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=0)
-
-        # Use to compare and save values when val_loss > val_loss_best
-        val_loss_best = 10.0
-
-        for epoch in range(args.epochs):
-            tem_time = time.time()
-
-            # train for one epoch
-            train_log = train(args, train_loader, model_, criterion, optimizer, scheduler, interp)
-
-            # evaluate.py on validation set
-            val_log = validate(args, test_loader, model_, criterion, interp, metrics=None)
-
-            # Gather data and report
-            epoch_time = time.time() - tem_time
-
-            y_loss['train'].append(train_log['epoch_loss'])
-            y_loss['val'].append(val_log['epoch_loss'])
-            y_err['train'].append(1.0 - train_log['epoch_acc'])
-            y_err['val'].append(1.0 - val_log['epoch_acc'])
-
-            # deep copy the modules
-            draw_curve(current_epoch=epoch, x_epoch=x_epoch,
-                       y_loss=y_loss, y_err=y_err, fig=fig, ax0=ax0, ax1=ax1)
-
-            if val_log['loss'] < val_loss_best:
-                val_loss_best = val_log['loss']
-                torch.save(model_.state_dict(), os.path.join(snapshot_dir, 'model_weight_best.pth'))
-
-            # Reports the loss for each epoch
-            print('Epoch %d/%d - %.2fs - loss %.4f - acc %.4f - val_loss %.4f - val_acc %.4f' %
-                  (epoch + 1, args.epochs, epoch_time, train_log['loss'], train_log['acc'], val_log['loss'],
-                   val_log['acc']))
-
-        # Later to restore
-        model_.load_state_dict(torch.load(os.path.join(snapshot_dir, 'model_weight_best.pth')))
-        val_log_test = validate(args, test_loader, model_, criterion, interp, metrics='all')
-
-        pre_classes = np.append(pre_classes, val_log_test['pre_score'])
-        rec_classes = np.append(rec_classes, val_log_test['rec_score'])
-        f1_classes = np.append(f1_classes, val_log_test['f1_score'])
-
-        print("\nResults on fold %d ----------------------------------------------------------------" % fold)
-
-        print(
-            '===> Non-Landslide [Pre, Rec, F1] = [%.2f, %.2f, %.2f]' %
-            (val_log_test['pre_score'][0] * 100, val_log_test['rec_score'][0] * 100, val_log_test['f1_score'][0] * 100))
-
-        print(
-            '===> Landslide [Pre, Rec, F1] = [%.2f, %.2f, %.2f]' %
-            (val_log_test['pre_score'][1] * 100, val_log_test['rec_score'][1] * 100, val_log_test['f1_score'][1] * 100))
-
-        print('===> Mean [Pre, Rec, F1] = [%.2f, %.2f, %.2f]' %
-              (np.mean(val_log_test['pre_score']) * 100, np.mean(val_log_test['rec_score']) * 100,
-               np.mean(val_log_test['f1_score']) * 100))
-
-    print('\n\n----------------------------- For all folds ----------------------------------------\n')
-
-    print('===> Mean-Non-Landslide [Pre, Rec, F1] = [%.2f, %.2f, %.2f]' %
-          (np.mean(pre_classes[0:len(pre_classes):2]) * 100,
-           np.mean(rec_classes[0:len(rec_classes):2]) * 100,
-           np.mean(f1_classes[0:len(f1_classes):2]) * 100))
-
-    print('===> Mean-Landslide [Pre, Rec, F1] = [%.2f, %.2f, %.2f]' %
-          (np.mean(pre_classes[1:len(pre_classes):2]) * 100,
-           np.mean(rec_classes[1:len(rec_classes):2]) * 100,
-           np.mean(f1_classes[1:len(f1_classes):2]) * 100))
-
-    print('===> Mean [Pre, Rec, F1] = [%.2f, %.2f, %.2f]' %
-          (np.mean(pre_classes) * 100, np.mean(rec_classes) * 100,
-           np.mean(f1_classes) * 100))
-
-    # # For plot confusion matrix
-    # actual_classes = np.append(actual_classes, np.concatenate(val_log['target']).tolist())
-    # predicted_classes = np.append(predicted_classes, np.concatenate(val_log['pred']).tolist())
-
-    # cm = confusion_matrix(actual_classes, predicted_classes)
-    # # cmn = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-    # plt.figure(figsize=(10, 10))
-    # # sns.heatmap(cm, annot=True, fmt='.2f', xticklabels=name_classes, yticklabels=name_classes, cmap="Blues")
-    # sns.heatmap(cm, annot=True, fmt='g', xticklabels=name_classes, yticklabels=name_classes, cmap="Blues")
-    # plt.xlabel('Predicted')
-    # plt.ylabel('Actual')
-    # plt.title('Confusion Matrix')
-    # plt.savefig(os.path.join('image/', 'confusion_matrix.pdf'), bbox_inches='tight', dpi=2400)
-    # plt.close()
+            if not trainer.args.no_val and epoch % args.eval_interval == (args.eval_interval - 1):
+                trainer_.validation(epoch, kbar)
 
 
 if __name__ == '__main__':

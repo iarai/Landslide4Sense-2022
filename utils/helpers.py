@@ -19,8 +19,7 @@ def count_params(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-def get_size_dataset():
-    dir_path = os.path.join(os.getcwd(), 'data/img')
+def get_size_dataset(dir_path):
     count = 0
 
     for path in os.listdir(dir_path):
