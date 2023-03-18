@@ -5,6 +5,8 @@ from __future__ import print_function
 import argparse
 import os
 import copy as cp
+import torch
+import numpy as np
 
 from torch.utils import data
 import albumentations as A
@@ -30,7 +32,7 @@ def parse_args():
 
     parser.add_argument("--model_module", type=str, default='modules.model',
                         help='model module to import')
-    parser.add_argument("--model_name", type=str, default='NestedUNet',
+    parser.add_argument("--model_name", type=str, default='DoubleUNet',
                         help='model name in given module')
 
     parser.add_argument("--data_dir", type=str, default='./TrainData/',
@@ -303,8 +305,7 @@ def main():
             (4 * len(args.gpu_ids)) * args.batch_size
 
     # Splitting k-fold
-    split_fold(num_fold=args.k_fold, test_image_number=int(
-        get_size_dataset('./data/img') / args.k_fold))
+    # split_fold(num_fold=args.k_fold, test_image_number=int(get_size_dataset('./data/img') / args.k_fold))
 
     for fold in range(args.k_fold):
         print("\nTraining on fold %d" % fold)
