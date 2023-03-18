@@ -294,9 +294,6 @@ def main():
     if args.save_dir is None:
         args.save_dir = os.path.join(os.getcwd(), 'run')
 
-    if args.checkname is None:
-        args.checkname = 'fpn-' + str(args.net)
-
     if args.cuda and args.mGPUs:
         try:
             args.gpu_ids = [int(s) for s in args.gpu_ids.split(',')]
