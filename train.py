@@ -118,9 +118,6 @@ def parse_args():
     parser.add_argument('--checkpoint', dest='checkpoint', type=int, default=0,
                         help='checkpoint to load model')
 
-    # configure validation
-    parser.add_argument('--no_val', dest='no_val', type=bool, default=False,
-                        help='not do validation')
 
     return parser.parse_args()
 
@@ -336,10 +333,8 @@ def main():
             kbar = Kpar.Kbar(target=train_per_epoch, epoch=epoch, num_epochs=args.epochs, width=25,
                              always_stateful=False)
 
-            trainer_.training(epoch, kbar)
-
-            if not trainer.args.no_val and epoch % args.eval_interval == (args.eval_interval - 1):
-                trainer_.validation(epoch, kbar)
+            trainer_.training(epoch, kbar)            
+            trainer_.validation(epoch, kbar)
 
 
 if __name__ == '__main__':
