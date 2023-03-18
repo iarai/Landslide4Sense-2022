@@ -180,7 +180,7 @@ class Trainer(object):
         self.optimizer = opt
 
         # Define Evaluator
-        self.evaluator = Evaluator(self.args.num_class)
+        self.evaluator = Evaluator(self.args.num_classes)
 
         # multiple mGPUs
         if self.args.mGPUs:
@@ -328,7 +328,7 @@ def main():
         # Takes a local copy of the machine learning algorithm (modules) to avoid changing the one passed in
         trainer_ = cp.deepcopy(trainer)
 
-        train_per_epoch = np.ceil(get_size_dataset("./data/TrainData/" + str(fold) + "/train/img/") / args.batch_size)
+        train_per_epoch = np.ceil(get_size_dataset("./data/TrainData" + str(fold) + "/train/img/") / args.batch_size)
 
         for epoch in range(trainer_.args.start_epoch, trainer_.args.epochs):
             kbar = Kpar.Kbar(target=train_per_epoch, epoch=epoch, num_epochs=args.epochs, width=25,
