@@ -146,8 +146,8 @@ class Trainer(object):
         self.args = args
 
         # Define Saver
-        self.saver = Saver(self.args)
-        self.saver.save_experiment_config()
+        # self.saver = Saver(self.args)
+        # self.saver.save_experiment_config()
 
         # Define Dataloader
         self.train_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.train_list,
