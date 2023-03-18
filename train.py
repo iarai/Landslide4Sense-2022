@@ -4,38 +4,18 @@ from __future__ import print_function
 
 import argparse
 import os
-import time
 import copy as cp
 
-import numpy as np
-import torch.nn as nn
-import torch.optim as optim
 from torch.utils import data
-import torch.backends.cudnn as cudnn
 import albumentations as A
-from collections import OrderedDict
-import matplotlib.pyplot as plt
 from torch.autograd import Variable
-from torch.nn import functional as F
 
-from dataset import make_data_loader
 from utils.metrics import *
 from utils.loss import SegmentationLosses
 from utils import Kpar
 from utils.helpers import import_name, get_size_dataset, split_fold, get_train_test_list
 from utils.saver import Saver
 from dataset.dataset import LandslideDataSet
-
-name_classes = ['Non-Landslide', 'Landslide']
-epsilon = 1e-14
-
-y_loss = {'train': [], 'val': []}
-y_err = {'train': [], 'val': []}
-
-x_epoch = []
-fig = plt.figure(figsize=(12, 5))
-ax0 = fig.add_subplot(121, title="loss")
-ax1 = fig.add_subplot(122, title="top1err")
 
 
 def parse_args():
@@ -56,19 +36,14 @@ def parse_args():
                         help="dataset path.")
     parser.add_argument("--train_list", type=str, default='./dataset/train.txt',
                         help="training list file.")
-    parser.add_argument("--val_list", type=str, default='./dataset/valid.txt',
-                        help="val list file.")
     parser.add_argument("--test_list", type=str, default='./dataset/test.txt',
                         help="test list file.")
     parser.add_argument('--dataset', dest='dataset', type=str, default='Landslide4Sense',
-                      help='training dataset')                        
-    parser.add_argument("--input_size", type=str, default='128,128',
-                        help="comma-separated string with height and width of images.")
+                        help='training dataset')
     parser.add_argument("--num_classes", type=int, default=2,
                         help="number of classes.")
     parser.add_argument("--batch_size", type=int, default=32,
                         help="number of images sent to the network in one step.")
-
     parser.add_argument('--start_epoch', dest='start_epoch', type=int, default=0,
                         help='starting epoch')
     parser.add_argument('--epochs', default=100, type=int, metavar='N',
@@ -224,7 +199,6 @@ class Trainer(object):
             outputs = self.model(inputs)
 
             loss = self.criterion(outputs, labels.long())
-            # loss_train = loss.item()
             loss.backward(torch.ones_like(loss))
             self.optimizer.step()
             train_loss += loss.item()
@@ -319,7 +293,7 @@ def main():
         args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
 
     # Splitting k-fold
-    # split_fold(num_fold=args.k_fold, test_image_number=int(get_size_dataset('./data/img') / args.k_fold))
+    split_fold(num_fold=args.k_fold, test_image_number=int(get_size_dataset('./data/img') / args.k_fold))
 
     for fold in range(args.k_fold):
         print("\nTraining on fold %d" % fold)
@@ -343,7 +317,7 @@ def main():
             kbar = Kpar.Kbar(target=train_per_epoch, epoch=epoch, num_epochs=args.epochs, width=25,
                              always_stateful=False)
 
-            trainer_.training(epoch, kbar)            
+            trainer_.training(epoch, kbar)
             trainer_.validation(epoch, kbar)
 
 
