@@ -2,7 +2,6 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from collections import OrderedDict
 
 
 class _DenseLayer(nn.Module):
@@ -79,55 +78,3 @@ class OutConv(nn.Module):
 
     def forward(self, x):
         return self.conv(x)
-
-
-class DenseNet(nn.Module):
-    def __init__(self, kernel_size=(3, 3, 3), n_channels=14, growth_rate=8, block_config=(4, 6, 4),
-                 num_init_features=64, bn_size=4, drop_rate=0.25,
-                 n_classes=2, memory_efficient=False):
-
-        super(DenseNet, self).__init__()
-
-        # First convolution
-        self.features = nn.Sequential(OrderedDict(
-            [('conv0', nn.Conv2d(n_channels, num_init_features, kernel_size=7, stride=2, padding=3, bias=False)),
-             ('norm0', nn.BatchNorm2d(num_init_features)),
-             ('relu0', nn.ReLU(inplace=True)),
-             ('pool0', nn.MaxPool2d(kernel_size=3, stride=2, padding=1))
-             ]))
-
-        # Each denseblock
-        num_features = num_init_features
-        for i, num_layers in enumerate(block_config):  # i = [0,1,2,3] and num_layers = [6, 12, 24, 16]
-            block = _DenseBlock(kernel_size=kernel_size[i], num_layers=num_layers, num_input_features=num_features,
-                                bn_size=bn_size,
-                                growth_rate=growth_rate, drop_rate=drop_rate, memory_efficient=memory_efficient)
-            self.features.add_module('denseblock%d' % (i + 1), block)
-            num_features = num_features + num_layers * growth_rate
-            if i != len(block_config) - 1:
-                # add transition layer between denseblocks to downsample
-                trans = _Transition(num_input_features=num_features, num_output_features=num_features // 2)
-                self.features.add_module('transition%d' % (i + 1), trans)
-                num_features = num_features // 2
-
-        # Final batch norm
-        self.features.add_module('norm5', nn.BatchNorm2d(num_features))
-
-        # Classifier layer
-        self.classifier = OutConv(num_features, n_classes)
-
-        # Official init from torch repo.
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.constant_(m.bias, 0)
-
-    def forward(self, x):
-        features = self.features(x)
-        out = F.relu(features, inplace=True)
-        out = self.classifier(out)
-        return out

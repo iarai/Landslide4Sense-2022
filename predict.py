@@ -5,7 +5,7 @@ import torch.nn as nn
 from torch.utils import data
 import torch.backends.cudnn as cudnn
 from dataset.dataset import LandslideDataSet
-from modules.unet import unet
+from modules.unet_base import unet
 import h5py
 
 name_classes = ['Non-Landslide', 'Landslide']

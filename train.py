@@ -25,11 +25,12 @@ def parse_args():
           A list of parsed arguments.
     """
 
-    parser = argparse.ArgumentParser(description="Train a Semantic Segmentation network")
+    parser = argparse.ArgumentParser(
+        description="Train a Semantic Segmentation network")
 
-    parser.add_argument("--model_module", type=str, default='modules.unet',
+    parser.add_argument("--model_module", type=str, default='modules.model',
                         help='model module to import')
-    parser.add_argument("--model_name", type=str, default='Unet',
+    parser.add_argument("--model_name", type=str, default='NestedUNet',
                         help='model name in given module')
 
     parser.add_argument("--data_dir", type=str, default='./TrainData/',
@@ -131,15 +132,18 @@ class Trainer(object):
         self.saver.save_experiment_config()
 
         # Define Dataloader
-        self.train_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.train_list,
+        self.train_loader = data.DataLoader(LandslideDataSet(args.data_dir,
+                                                             args.train_list,
                                                              transform=train_transform,
                                                              set_mask='masked'),
                                             batch_size=args.batch_size, shuffle=True,
                                             num_workers=args.num_workers, pin_memory=True)
 
-        self.test_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.test_list, set_mask='masked'),
-                                           batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers,
-                                           pin_memory=True)
+        self.test_loader = data.DataLoader(LandslideDataSet(args.data_dir,
+                                                            args.test_list,
+                                                            set_mask='masked'),
+                                           batch_size=args.batch_size, shuffle=False,
+                                           num_workers=args.num_workers, pin_memory=True)
 
         # Define network
         model_import = import_name(args.model_module, args.model_name)
@@ -150,12 +154,15 @@ class Trainer(object):
 
         if args.optimizer == 'adam':
             self.lr = self.lr * 0.1
-            opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+            opt = torch.optim.Adam(
+                model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
         elif args.optimizer == 'sgd':
-            opt = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0, weight_decay=args.weight_decay)
+            opt = torch.optim.SGD(
+                model.parameters(), lr=args.lr, momentum=0, weight_decay=args.weight_decay)
 
         # Define criterion
-        self.criterion = SegmentationLosses(weight=None, cuda=self.args.cuda).build_loss(mode='ce')
+        self.criterion = SegmentationLosses(
+            weight=None, cuda=self.args.cuda).build_loss(mode='ce')
 
         self.model = model
         self.optimizer = opt
@@ -165,7 +172,8 @@ class Trainer(object):
 
         # multiple mGPUs
         if self.args.mGPUs:
-            self.model = torch.nn.DataParallel(self.model, device_ids=self.args.gpu_ids)
+            self.model = torch.nn.DataParallel(
+                self.model, device_ids=self.args.gpu_ids)
 
         # Using cuda
         if self.args.cuda:
@@ -173,7 +181,7 @@ class Trainer(object):
 
         # Resuming checkpoint
         self.best_pred = -np.Inf
-        self.lr_stage = [68, 93]
+        self.lr_stage = [20, 40, 60, 80]
         self.lr_stage_ind = 0
 
     def training(self, epoch, kbar):
@@ -281,7 +289,8 @@ def main():
         try:
             args.gpu_ids = [int(s) for s in args.gpu_ids.split(',')]
         except ValueError:
-            raise ValueError('Argument --gpu_ids must be a comma-separated list of integer only')
+            raise ValueError(
+                'Argument --gpu_ids must be a comma-separated list of integer only')
 
     if args.batch_size is None:
         args.batch_size = 4 * len(args.gpu_ids)
@@ -290,10 +299,12 @@ def main():
         lrs = {
             'Landslide4Sense': 0.01,
         }
-        args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
+        args.lr = lrs[args.dataset.lower()] / \
+            (4 * len(args.gpu_ids)) * args.batch_size
 
     # Splitting k-fold
-    split_fold(num_fold=args.k_fold, test_image_number=int(get_size_dataset('./data/img') / args.k_fold))
+    split_fold(num_fold=args.k_fold, test_image_number=int(
+        get_size_dataset('./data/img') / args.k_fold))
 
     for fold in range(args.k_fold):
         print("\nTraining on fold %d" % fold)
@@ -311,7 +322,8 @@ def main():
         # Takes a local copy of the machine learning algorithm (modules) to avoid changing the one passed in
         trainer_ = cp.deepcopy(trainer)
 
-        train_per_epoch = np.ceil(get_size_dataset("./data/TrainData" + str(fold) + "/train/img/") / args.batch_size)
+        train_per_epoch = np.ceil(get_size_dataset(
+            "./data/TrainData" + str(fold) + "/train/img/") / args.batch_size)
 
         for epoch in range(trainer_.args.start_epoch, trainer_.args.epochs):
             kbar = Kpar.Kbar(target=train_per_epoch, epoch=epoch, num_epochs=args.epochs, width=25,
