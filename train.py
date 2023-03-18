@@ -68,6 +68,8 @@ def parse_args():
     parser.add_argument("--batch_size", type=int, default=32,
                         help="number of images sent to the network in one step.")
 
+    parser.add_argument('--start_epoch', dest='start_epoch', type=int, default=0,
+                        help='starting epoch')
     parser.add_argument('--epochs', default=100, type=int, metavar='N',
                         help='number of total epochs to run')
 
@@ -195,97 +197,97 @@ class Trainer(object):
         self.lr_stage = [68, 93]
         self.lr_stage_ind = 0
 
-        def training(self, epoch, kbar):
-            train_loss = 0.0
-            self.model.train()
+    def training(self, epoch, kbar):
+        train_loss = 0.0
+        self.model.train()
 
-            if self.lr_stage_ind > 1 and epoch % (self.lr_stage[self.lr_stage_ind]) == 0:
-                adjust_learning_rate(self.optimizer, self.args.lr_decay_gamma)
-                self.lr *= self.args.lr_decay_gamma
-                self.lr_stage_ind += 1
+        if self.lr_stage_ind > 1 and epoch % (self.lr_stage[self.lr_stage_ind]) == 0:
+            adjust_learning_rate(self.optimizer, self.args.lr_decay_gamma)
+            self.lr *= self.args.lr_decay_gamma
+            self.lr_stage_ind += 1
 
-            for batch_id, batch in enumerate(self.train_loader):
-                image, target, _, _ = batch
+        for batch_id, batch in enumerate(self.train_loader):
+            image, target, _, _ = batch
 
-                if self.args.cuda:
-                    image, target = image.cuda(), target.cuda()
+            if self.args.cuda:
+                image, target = image.cuda(), target.cuda()
 
-                self.optimizer.zero_grad()
+            self.optimizer.zero_grad()
 
-                inputs = Variable(image)
-                labels = Variable(target)
+            inputs = Variable(image)
+            labels = Variable(target)
 
-                outputs = self.model(inputs)
+            outputs = self.model(inputs)
 
-                loss = self.criterion(outputs, labels.long())
-                # loss_train = loss.item()
-                loss.backward(torch.ones_like(loss))
-                self.optimizer.step()
-                train_loss += loss.item()
+            loss = self.criterion(outputs, labels.long())
+            # loss_train = loss.item()
+            loss.backward(torch.ones_like(loss))
+            self.optimizer.step()
+            train_loss += loss.item()
 
-                kbar.update(batch_id, values=[("loss", train_loss)])
+            kbar.update(batch_id, values=[("loss", train_loss)])
 
-            # save checkpoint every epoch
-            if self.args.no_val:
-                is_best = False
+        # save checkpoint every epoch
+        if self.args.no_val:
+            is_best = False
 
-                self.saver.save_checkpoint(
-                    {
-                        'epoch': epoch + 1,
-                        'state_dict': self.model.state_dict(),
-                        'optimizer': self.optimizer.state_dict(),
-                        'best_pred': self.best_pred
-                    }, is_best)
+            self.saver.save_checkpoint(
+                {
+                    'epoch': epoch + 1,
+                    'state_dict': self.model.state_dict(),
+                    'optimizer': self.optimizer.state_dict(),
+                    'best_pred': self.best_pred
+                }, is_best)
 
-        def validation(self, epoch, kbar):
-            self.model.eval()
-            self.evaluator.reset()
-            val_loss = 0.0
+    def validation(self, epoch, kbar):
+        self.model.eval()
+        self.evaluator.reset()
+        val_loss = 0.0
 
-            for batch_id, batch in enumerate(self.val_loader):
-                image, target, _, _ = batch
+        for batch_id, batch in enumerate(self.val_loader):
+            image, target, _, _ = batch
 
-                if self.args.cuda:
-                    image, target = image.cuda(), target.cuda()
+            if self.args.cuda:
+                image, target = image.cuda(), target.cuda()
 
-                with torch.no_grad():
-                    output = self.model(image)
+            with torch.no_grad():
+                output = self.model(image)
 
-                loss = self.criterion(output, target.long())
-                val_loss += loss.item()
-                pred = output.data.cpu().numpy()
-                target = target.cpu().numpy()
-                pred = np.argmax(pred, axis=1)
+            loss = self.criterion(output, target.long())
+            val_loss += loss.item()
+            pred = output.data.cpu().numpy()
+            target = target.cpu().numpy()
+            pred = np.argmax(pred, axis=1)
 
-                # Add batch sample into evaluator
-                self.evaluator.add_batch(target, pred)
+            # Add batch sample into evaluator
+            self.evaluator.add_batch(target, pred)
 
-            # Fast test during the training
-            acc = self.evaluator.pixel_accuracy()
-            acc_class = self.evaluator.pixel_accuracy_class()
-            mIoU = self.evaluator.mean_intersection_over_union()
-            fwIoU = self.evaluator.frequency_weighted_intersection_over_union()
-            p = self.evaluator.precision()
-            r = self.evaluator.recall()
-            f1 = self.evaluator.f1()
+        # Fast test during the training
+        acc = self.evaluator.pixel_accuracy()
+        acc_class = self.evaluator.pixel_accuracy_class()
+        mIoU = self.evaluator.mean_intersection_over_union()
+        fwIoU = self.evaluator.frequency_weighted_intersection_over_union()
+        p = self.evaluator.precision()
+        r = self.evaluator.recall()
+        f1 = self.evaluator.f1()
 
-            kbar.add(1, values=[("val_loss", val_loss), ("val_acc", acc),
-                                ('acc_class', acc_class), ('mIoU', mIoU),
-                                ('fwIoU', fwIoU), ('precision', p[1]),
-                                ('recall', r[1]), ('f1', f1[1])])
+        kbar.add(1, values=[("val_loss", val_loss), ("val_acc", acc),
+                            ('acc_class', acc_class), ('mIoU', mIoU),
+                            ('fwIoU', fwIoU), ('precision', p[1]),
+                            ('recall', r[1]), ('f1', f1[1])])
 
-            new_pred = mIoU
+        new_pred = mIoU
 
-            if new_pred > self.best_pred:
-                is_best = True
-                self.best_pred = new_pred
-                self.saver.save_checkpoint(
-                    {
-                        'epoch': epoch + 1,
-                        'state_dict': self.model.state_dict(),
-                        'optimizer': self.optimizer.state_dict(),
-                        'best_pred': self.best_pred
-                    }, is_best)
+        if new_pred > self.best_pred:
+            is_best = True
+            self.best_pred = new_pred
+            self.saver.save_checkpoint(
+                {
+                    'epoch': epoch + 1,
+                    'state_dict': self.model.state_dict(),
+                    'optimizer': self.optimizer.state_dict(),
+                    'best_pred': self.best_pred
+                }, is_best)
 
 
 def main():
@@ -310,7 +312,7 @@ def main():
         args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
 
     # Splitting k-fold
-    split_fold(num_fold=args.k_fold, test_image_number=int(get_size_dataset('./data/img') / args.k_fold))
+    # split_fold(num_fold=args.k_fold, test_image_number=int(get_size_dataset('./data/img') / args.k_fold))
 
     for fold in range(args.k_fold):
         print("\nTraining on fold %d" % fold)
