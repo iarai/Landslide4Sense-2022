@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument("--model_module", type=str, default='modules.model',
                         help='model module to import')
     parser.add_argument("--model_name", type=str, default='DoubleUNet',
-                        help='model name in given module')
+                        help='model name in given module: UNnet, R2UNet, Att_UNet, R2Att_UNet, NestedUNet, DoubleUNet, DenseNet')
 
     parser.add_argument("--data_dir", type=str, default='./TrainData/',
                         help="dataset path.")
@@ -134,16 +134,11 @@ class Trainer(object):
         self.saver.save_experiment_config()
 
         # Define Dataloader
-        self.train_loader = data.DataLoader(LandslideDataSet(args.data_dir,
-                                                             args.train_list,
-                                                             transform=train_transform,
-                                                             set_mask='masked'),
+        self.train_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.train_list, transform=None, set_mask='masked'),
                                             batch_size=args.batch_size, shuffle=True,
                                             num_workers=args.num_workers, pin_memory=True)
 
-        self.test_loader = data.DataLoader(LandslideDataSet(args.data_dir,
-                                                            args.test_list,
-                                                            set_mask='masked'),
+        self.test_loader = data.DataLoader(LandslideDataSet(args.data_dir, args.test_list, set_mask='masked'),
                                            batch_size=args.batch_size, shuffle=False,
                                            num_workers=args.num_workers, pin_memory=True)
 
@@ -156,15 +151,12 @@ class Trainer(object):
 
         if args.optimizer == 'adam':
             self.lr = self.lr * 0.1
-            opt = torch.optim.Adam(
-                model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+            opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
         elif args.optimizer == 'sgd':
-            opt = torch.optim.SGD(
-                model.parameters(), lr=args.lr, momentum=0, weight_decay=args.weight_decay)
+            opt = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0, weight_decay=args.weight_decay)
 
         # Define criterion
-        self.criterion = SegmentationLosses(
-            weight=None, cuda=self.args.cuda).build_loss(mode='ce')
+        self.criterion = SegmentationLosses(weight=None, cuda=self.args.cuda).build_loss(mode='ce')
 
         self.model = model
         self.optimizer = opt
@@ -291,18 +283,14 @@ def main():
         try:
             args.gpu_ids = [int(s) for s in args.gpu_ids.split(',')]
         except ValueError:
-            raise ValueError(
-                'Argument --gpu_ids must be a comma-separated list of integer only')
+            raise ValueError('Argument --gpu_ids must be a comma-separated list of integer only')
 
     if args.batch_size is None:
         args.batch_size = 4 * len(args.gpu_ids)
 
     if args.lr is None:
-        lrs = {
-            'Landslide4Sense': 0.01,
-        }
-        args.lr = lrs[args.dataset.lower()] / \
-            (4 * len(args.gpu_ids)) * args.batch_size
+        lrs = {'Landslide4Sense': 0.01}
+        args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
 
     # Splitting k-fold
     split_fold(num_fold=args.k_fold, test_image_number=int(get_size_dataset('./data/img') / args.k_fold))
@@ -323,12 +311,10 @@ def main():
         # Takes a local copy of the machine learning algorithm (modules) to avoid changing the one passed in
         trainer_ = cp.deepcopy(trainer)
 
-        train_per_epoch = np.ceil(get_size_dataset(
-            "./data/TrainData" + str(fold) + "/train/img/") / args.batch_size)
+        train_per_epoch = np.ceil(get_size_dataset("./data/TrainData" + str(fold) + "/train/img/") / args.batch_size)
 
         for epoch in range(trainer_.args.start_epoch, trainer_.args.epochs):
-            kbar = Kpar.Kbar(target=train_per_epoch, epoch=epoch, num_epochs=args.epochs, width=25,
-                             always_stateful=False)
+            kbar = Kpar.Kbar(target=train_per_epoch, epoch=epoch, num_epochs=args.epochs, width=25, always_stateful=False)
 
             trainer_.training(epoch, kbar)
             trainer_.validation(epoch, kbar)
