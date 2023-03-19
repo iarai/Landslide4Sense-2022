@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument("--model_module", type=str, default='modules.model',
                         help='model module to import')
     parser.add_argument("--model_name", type=str, default='DoubleUNet',
-                        help='model name in given module: UNnet, R2UNet, Att_UNet, R2Att_UNet, NestedUNet, DoubleUNet, DenseNet')
+                        help='model name in given module: UNnet, R2UNet, Att_UNet, R2Att_UNet, NestedUNet, DenseNet')
 
     parser.add_argument("--data_dir", type=str, default='./TrainData/',
                         help="dataset path.")
@@ -114,9 +114,9 @@ def adjust_learning_rate(optimizer, decay=0.1):
 
 train_transform = A.Compose(
     [
-        # A.HorizontalFlip(),
-        # A.VerticalFlip(),
-        # A.ShiftScaleRotate(),
+        A.HorizontalFlip(),
+        A.VerticalFlip(),
+        A.ShiftScaleRotate(),
         A.CoarseDropout(),
         A.MaskDropout(),
         A.PixelDropout(),
@@ -293,7 +293,7 @@ def main():
         args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
 
     # Splitting k-fold
-    split_fold(num_fold=args.k_fold, test_image_number=int(get_size_dataset('./data/img') / args.k_fold))
+    # split_fold(num_fold=args.k_fold, test_image_number=int(get_size_dataset('./data/img') / args.k_fold))
 
     for fold in range(args.k_fold):
         print("\nTraining on fold %d" % fold)
