@@ -72,7 +72,7 @@ def parse_args():
                         help="number of fold for k-fold.")
 
     # config optimization
-    parser.add_argument('--opt', dest='optimizer', type=str, default='adam',
+    parser.add_argument('--opt', dest='optimizer', type=str, default='adamax',
                         help='training optimizer')
     parser.add_argument('--lr', dest='lr', type=float, default=1e-3,
                         help='starting learning rate')
@@ -149,9 +149,9 @@ class Trainer(object):
         # Define Optimizer
         self.lr = self.args.lr
 
-        if args.optimizer == 'adam':
+        if args.optimizer == 'adamax':
             self.lr = self.lr * 0.1
-            opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+            opt = torch.optim.Adamax(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
         elif args.optimizer == 'sgd':
             opt = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0, weight_decay=args.weight_decay)
 
@@ -256,9 +256,12 @@ class Trainer(object):
                             ('fwIoU', fwIoU), ('precision', p[1]),
                             ('recall', r[1]), ('f1', f1[1])])
 
-        new_pred = mIoU
+        new_pred = f1[1]
 
         if new_pred > self.best_pred:
+            print('\nEpoch %d: f1 improved from %0.5f to %0.5f' % (
+                    epoch + 1, self.best_pred, new_pred))
+            
             is_best = True
             self.best_pred = new_pred
             self.saver.save_checkpoint(
@@ -268,7 +271,8 @@ class Trainer(object):
                     'optimizer': self.optimizer.state_dict(),
                     'best_pred': self.best_pred
                 }, is_best)
-
+        else:
+                print('\nEpoch %d: f1 (%.05f) did not improve from %0.5f' % (epoch + 1, new_pred, self.best_pred))
 
 def main():
     args = parse_args()
