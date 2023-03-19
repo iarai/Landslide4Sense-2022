@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-# @Time    : 2020-02-26 17:59
-# @Author  : Zonas
-# @Email   : zonas.wang@gmail.com
-# @File    : model.py
-"""
-"""
 import torch.nn as nn
 import torch
 
@@ -299,11 +292,6 @@ class R2Att_UNet(nn.Module):
 
 
 class NestedUNet(nn.Module):
-    """
-    Implementation of this paper:
-    https://arxiv.org/pdf/1807.10165.pdf
-    """
-
     def __init__(self, in_ch=14, n_classes=2):
         super(NestedUNet, self).__init__()
 
