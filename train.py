@@ -30,10 +30,10 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Train a Semantic Segmentation network")
 
-    parser.add_argument("--model_module", type=str, default='modules.model',
+    parser.add_argument("--model_module", type=str, default='modules',
                         help='model module to import')
-    parser.add_argument("--model_name", type=str, default='DoubleUNet',
-                        help='model name in given module: UNnet, R2UNet, Att_UNet, R2Att_UNet, NestedUNet, DenseNet')
+    parser.add_argument("--model_name", type=str, default='UNet',
+                        help='model name in given module: UNnet, R2UNet, Att_UNet, R2Att_UNet, NestedUNet, UNet_2Plus, UNet_3Plus, UNet_3Plus_DeepSup, UNet_3Plus_DeepSup_CGM')
 
     parser.add_argument("--data_dir", type=str, default='./TrainData/',
                         help="dataset path.")
@@ -145,18 +145,22 @@ class Trainer(object):
         # Define network
         model_import = import_name(args.model_module, args.model_name)
         model = model_import(n_classes=args.num_classes)
+        
 
         # Define Optimizer
         self.lr = self.args.lr
 
-        if args.optimizer == 'adamax':
+        if args.optimizer == 'adam':
             self.lr = self.lr * 0.1
-            opt = torch.optim.Adamax(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+            opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        elif args.optimizer == 'adamax':
+            self.lr = self.lr * 0.1
+            opt = torch.optim.Adamax(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)        
         elif args.optimizer == 'sgd':
             opt = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0, weight_decay=args.weight_decay)
 
         # Define criterion
-        self.criterion = SegmentationLosses(weight=None, cuda=self.args.cuda).build_loss(mode='ce')
+        self.criterion = SegmentationLosses(weight=None, cuda=self.args.cuda).build_loss(mode='bce')
 
         self.model = model
         self.optimizer = opt
@@ -297,7 +301,7 @@ def main():
         args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
 
     # Splitting k-fold
-    split_fold(num_fold=args.k_fold, test_image_number=int(get_size_dataset('./data/img') / args.k_fold))
+    # split_fold(num_fold=args.k_fold, test_image_number=int(get_size_dataset('./data/img') / args.k_fold))
 
     for fold in range(args.k_fold):
         print("\nTraining on fold %d" % fold)

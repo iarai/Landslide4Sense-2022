@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 import utils.lovasz_losses as L
 
 
@@ -17,15 +18,13 @@ class SegmentationLosses(object):
             self.size_average = 'sum'
 
     def build_loss(self, mode='ce'):
-        """Choices: ['ce', 'focal', 'ls' or 'lh']"""
+        """Choices: ['ce', 'focal' or 'ls']"""
         if mode == 'ce':
             return self.CrossEntropyLoss
         elif mode == 'focal':
             return self.FocalLoss
         elif mode == 'ls':
             return self.LovaszLossSoftmax
-        elif mode == 'lh':
-            return self.LovaszLossHinge
         else:
             raise NotImplementedError
 
@@ -70,16 +69,6 @@ class SegmentationLosses(object):
             loss /= n
 
         return loss
-
-    def LovaszLossHinge(self, logit, target):        
-        n, c, h, w = logit.size()
-        loss = L.lovasz_hinge(logit, target)
-
-        if self.batch_average:
-            loss /= n
-
-        return loss
-
 
 
 if __name__ == "__main__":
