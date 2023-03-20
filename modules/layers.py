@@ -47,13 +47,15 @@ class unetUp(nn.Module):
         # self.conv = unetConv2(in_size + (n_concat - 2) * out_size, out_size, False)
         self.conv = unetConv2(out_size*2, out_size, False)
         if is_deconv:
-            self.up = nn.ConvTranspose2d(in_size, out_size, kernel_size=4, stride=2, padding=1)
+            self.up = nn.ConvTranspose2d(
+                in_size, out_size, kernel_size=4, stride=2, padding=1)
         else:
             self.up = nn.UpsamplingBilinear2d(scale_factor=2)
 
         # initialise the blocks
         for m in self.children():
-            if m.__class__.__name__.find('unetConv2') != -1: continue
+            if m.__class__.__name__.find('unetConv2') != -1:
+                continue
             init_weights(m, init_type='kaiming')
 
     def forward(self, inputs0, *input):
@@ -63,22 +65,26 @@ class unetUp(nn.Module):
         for i in range(len(input)):
             outputs0 = torch.cat([outputs0, input[i]], 1)
         return self.conv(outputs0)
-    
-    
+
+
 class unetUp_origin(nn.Module):
     def __init__(self, in_size, out_size, is_deconv, n_concat=2):
         super(unetUp_origin, self).__init__()
         # self.conv = unetConv2(out_size*2, out_size, False)
         if is_deconv:
-            self.conv = unetConv2(in_size + (n_concat - 2) * out_size, out_size, False)
-            self.up = nn.ConvTranspose2d(in_size, out_size, kernel_size=4, stride=2, padding=1)
+            self.conv = unetConv2(in_size + (n_concat - 2)
+                                  * out_size, out_size, False)
+            self.up = nn.ConvTranspose2d(
+                in_size, out_size, kernel_size=4, stride=2, padding=1)
         else:
-            self.conv = unetConv2(in_size + (n_concat - 2) * out_size, out_size, False)
+            self.conv = unetConv2(in_size + (n_concat - 2)
+                                  * out_size, out_size, False)
             self.up = nn.UpsamplingBilinear2d(scale_factor=2)
 
         # initialise the blocks
         for m in self.children():
-            if m.__class__.__name__.find('unetConv2') != -1: continue
+            if m.__class__.__name__.find('unetConv2') != -1:
+                continue
             init_weights(m, init_type='kaiming')
 
     def forward(self, inputs0, *input):
@@ -199,9 +205,11 @@ class conv_block_nested(nn.Module):
     def __init__(self, in_ch, mid_ch, out_ch):
         super(conv_block_nested, self).__init__()
         self.activation = nn.ReLU(inplace=True)
-        self.conv1 = nn.Conv2d(in_ch, mid_ch, kernel_size=3, padding=1, bias=True)
+        self.conv1 = nn.Conv2d(
+            in_ch, mid_ch, kernel_size=3, padding=1, bias=True)
         self.bn1 = nn.BatchNorm2d(mid_ch)
-        self.conv2 = nn.Conv2d(mid_ch, out_ch, kernel_size=3, padding=1, bias=True)
+        self.conv2 = nn.Conv2d(
+            mid_ch, out_ch, kernel_size=3, padding=1, bias=True)
         self.bn2 = nn.BatchNorm2d(out_ch)
 
     def forward(self, x):
@@ -214,4 +222,20 @@ class conv_block_nested(nn.Module):
         x = self.bn2(x)
         output = self.activation(x + identity)
         return output
-                
+
+
+class ChannelAttention(nn.Module):
+    def __init__(self, in_channels, ratio=16):
+        super(ChannelAttention, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.max_pool = nn.AdaptiveMaxPool2d(1)
+        self.fc1 = nn.Conv2d(in_channels, in_channels//ratio, 1, bias=False)
+        self.relu1 = nn.ReLU()
+        self.fc2 = nn.Conv2d(in_channels//ratio, in_channels, 1, bias=False)
+        self.sigmod = nn.Sigmoid()
+
+    def forward(self, x):
+        avg_out = self.fc2(self.relu1(self.fc1(self.avg_pool(x))))
+        max_out = self.fc2(self.relu1(self.fc1(self.max_pool(x))))
+        out = avg_out + max_out
+        return self.sigmod(out)

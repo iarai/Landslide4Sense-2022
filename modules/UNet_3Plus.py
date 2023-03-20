@@ -3,10 +3,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from modules.layers import unetConv2
+from modules.layers import unetConv2, ChannelAttention
 from modules.init_weights import init_weights
-
-
+    
+    
 '''
     UNet 3+
 '''
@@ -182,7 +182,13 @@ class UNet_3Plus(nn.Module):
         self.relu1d_1 = nn.ReLU(inplace=True)
 
         # output
-        self.outconv1 = nn.Conv2d(self.UpChannels, n_classes, 3, padding=1)
+        self.ca = ChannelAttention(filters[0] * 4, ratio=16)
+        self.ca1 = ChannelAttention(filters[0], ratio=16 // 4)
+
+        self.outconv1 = nn.Conv2d(filters[0] * 4, n_classes, kernel_size=1)
+
+
+        # self.outconv1 = nn.Conv2d(self.UpChannels, n_classes, 3, padding=1)
 
         # initialise weights
         for m in self.modules():
@@ -237,12 +243,20 @@ class UNet_3Plus(nn.Module):
         hd3_UT_hd1 = self.hd3_UT_hd1_relu(self.hd3_UT_hd1_bn(self.hd3_UT_hd1_conv(self.hd3_UT_hd1(hd3))))
         hd4_UT_hd1 = self.hd4_UT_hd1_relu(self.hd4_UT_hd1_bn(self.hd4_UT_hd1_conv(self.hd4_UT_hd1(hd4))))
         hd5_UT_hd1 = self.hd5_UT_hd1_relu(self.hd5_UT_hd1_bn(self.hd5_UT_hd1_conv(self.hd5_UT_hd1(hd5))))
-        hd1 = self.relu1d_1(self.bn1d_1(self.conv1d_1(
-            torch.cat((h1_Cat_hd1, hd2_UT_hd1, hd3_UT_hd1, hd4_UT_hd1, hd5_UT_hd1), 1)))) # hd1->320*320*UpChannels
 
-        d1 = self.outconv1(hd1)  # d1->320*320*n_classes
+        # hd1 = self.relu1d_1(self.bn1d_1(self.conv1d_1(
+        #     torch.cat((h1_Cat_hd1, hd2_UT_hd1, hd3_UT_hd1, hd4_UT_hd1, hd5_UT_hd1), 1)))) # hd1->320*320*UpChannels
 
-        return d1
+        # d1 = self.outconv1(hd1)  # d1->320*320*n_classes
+
+        out = torch.cat([hd2_UT_hd1, hd3_UT_hd1, hd4_UT_hd1, hd5_UT_hd1], 1)
+
+        intra = torch.sum(torch.stack((hd2_UT_hd1, hd3_UT_hd1, hd4_UT_hd1, hd5_UT_hd1)), dim=0)
+        ca1 = self.ca1(intra)
+        out = self.ca(out) * (out + ca1.repeat(1, 4, 1, 1))
+        out = self.outconv1(out)
+
+        return out
     
 
 '''
