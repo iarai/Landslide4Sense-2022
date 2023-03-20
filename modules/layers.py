@@ -206,12 +206,12 @@ class conv_block_nested(nn.Module):
 
     def forward(self, x):
         x = self.conv1(x)
+        identity = x
         x = self.bn1(x)
         x = self.activation(x)
-        
+
         x = self.conv2(x)
         x = self.bn2(x)
-        output = self.activation(x)
-
-        return output        
+        output = self.activation(x + identity)
+        return output
                 

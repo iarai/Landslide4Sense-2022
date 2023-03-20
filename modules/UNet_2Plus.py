@@ -9,6 +9,7 @@ from modules.layers import unetConv2, unetUp_origin
 from modules.init_weights import init_weights
 
 
+# L4 (https://pub.towardsai.net/unet-clearly-explained-a-better-image-segmentation-architecture-f48661c92df9)
 class UNet_2Plus(nn.Module):
     def __init__(self, in_channels=14, n_classes=2, feature_scale=4, is_deconv=True, is_batchnorm=True, is_ds=True):
         super(UNet_2Plus, self).__init__()
@@ -80,13 +81,16 @@ class UNet_2Plus(nn.Module):
         X_11 = self.up_concat11(X_20, X_10)
         X_21 = self.up_concat21(X_30, X_20)
         X_31 = self.up_concat31(X_40, X_30)
+
         # column : 2
         X_02 = self.up_concat02(X_11, X_00, X_01)
         X_12 = self.up_concat12(X_21, X_10, X_11)
         X_22 = self.up_concat22(X_31, X_20, X_21)
+        
         # column : 3
         X_03 = self.up_concat03(X_12, X_00, X_01, X_02)
         X_13 = self.up_concat13(X_22, X_10, X_11, X_12)
+        
         # column : 4
         X_04 = self.up_concat04(X_13, X_00, X_01, X_02, X_03)
 
@@ -97,7 +101,7 @@ class UNet_2Plus(nn.Module):
         final_4 = self.final_4(X_04)
 
         final = (final_1 + final_2 + final_3 + final_4) / 4
-
+        
         if self.is_ds:
             return final
         else:
