@@ -34,7 +34,7 @@ def parse_args():
     parser.add_argument("--model_module", type=str, default='modules',
                         help='model module to import')
     parser.add_argument("--model_name", type=str, default='UNet_2Plus',
-                        help='model name in given module: UNet_2Plus, UNet_3Plus, UNet_3Plus_DeepSup, UNet_3Plus_DeepSup_CGM')
+                        help='model name in given module: UNet_2Plus, UNet_3Plus')
 
     parser.add_argument("--data_dir", type=str, default='./TrainData/',
                         help="dataset path.")
