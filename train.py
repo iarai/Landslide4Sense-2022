@@ -185,7 +185,11 @@ class Trainer(object):
             opt = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0, weight_decay=args.weight_decay)
 
         # Define criterion
+<<<<<<< HEAD
         self.criterion = get_loss_function(args.loss)
+=======
+        self.criterion = SegmentationLosses(weight=None, cuda=self.args.cuda).build_loss(mode='ce')
+>>>>>>> fe1e2355a7a1a8777aa507ac0c8dcf6a4931f582
 
         self.model = model
         self.optimizer = opt
