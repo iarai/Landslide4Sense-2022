@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from modules.init_weights import init_weights
+from torch.nn import init
 
 
 class unetConv2(nn.Module):
@@ -41,32 +42,6 @@ class unetConv2(nn.Module):
         return x
 
 
-class unetUp(nn.Module):
-    def __init__(self, in_size, out_size, is_deconv, n_concat=2):
-        super(unetUp, self).__init__()
-        # self.conv = unetConv2(in_size + (n_concat - 2) * out_size, out_size, False)
-        self.conv = unetConv2(out_size*2, out_size, False)
-        if is_deconv:
-            self.up = nn.ConvTranspose2d(
-                in_size, out_size, kernel_size=4, stride=2, padding=1)
-        else:
-            self.up = nn.UpsamplingBilinear2d(scale_factor=2)
-
-        # initialise the blocks
-        for m in self.children():
-            if m.__class__.__name__.find('unetConv2') != -1:
-                continue
-            init_weights(m, init_type='kaiming')
-
-    def forward(self, inputs0, *input):
-        # print(self.n_concat)
-        # print(input)
-        outputs0 = self.up(inputs0)
-        for i in range(len(input)):
-            outputs0 = torch.cat([outputs0, input[i]], 1)
-        return self.conv(outputs0)
-
-
 class unetUp_origin(nn.Module):
     def __init__(self, in_size, out_size, is_deconv, n_concat=2):
         super(unetUp_origin, self).__init__()
@@ -96,146 +71,32 @@ class unetUp_origin(nn.Module):
         return self.conv(outputs0)
 
 
-class conv_block(nn.Module):
-    def __init__(self, ch_in, ch_out):
-        super(conv_block, self).__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(ch_in, ch_out, kernel_size=3,
-                      stride=1, padding=1, bias=True),
-            nn.BatchNorm2d(ch_out),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(ch_out, ch_out, kernel_size=3,
-                      stride=1, padding=1, bias=True),
-            nn.BatchNorm2d(ch_out),
-            nn.ReLU(inplace=True)
-        )
-
+# BAM
+class Flatten(nn.Module):
     def forward(self, x):
-        x = self.conv(x)
-        return x
-
-
-class up_conv(nn.Module):
-    def __init__(self, ch_in, ch_out):
-        super(up_conv, self).__init__()
-        self.up = nn.Sequential(
-            nn.Upsample(scale_factor=2),
-            nn.Conv2d(ch_in, ch_out, kernel_size=3,
-                      stride=1, padding=1, bias=True),
-            nn.BatchNorm2d(ch_out),
-            nn.ReLU(inplace=True)
-        )
-
-    def forward(self, x):
-        x = self.up(x)
-        return x
-
-
-class Recurrent_block(nn.Module):
-    def __init__(self, ch_out, t=2):
-        super(Recurrent_block, self).__init__()
-        self.t = t
-        self.ch_out = ch_out
-        self.conv = nn.Sequential(
-            nn.Conv2d(ch_out, ch_out, kernel_size=3,
-                      stride=1, padding=1, bias=True),
-            nn.BatchNorm2d(ch_out),
-            nn.ReLU(inplace=True)
-        )
-
-    def forward(self, x):
-        for i in range(self.t):
-
-            if i == 0:
-                x1 = self.conv(x)
-
-            x1 = self.conv(x+x1)
-        return x1
-
-
-class RRCNN_block(nn.Module):
-    def __init__(self, ch_in, ch_out, t=2):
-        super(RRCNN_block, self).__init__()
-        self.RCNN = nn.Sequential(
-            Recurrent_block(ch_out, t=t),
-            Recurrent_block(ch_out, t=t)
-        )
-        self.Conv_1x1 = nn.Conv2d(
-            ch_in, ch_out, kernel_size=1, stride=1, padding=0)
-
-    def forward(self, x):
-        x = self.Conv_1x1(x)
-        x1 = self.RCNN(x)
-        return x+x1
-
-
-class Attention_block(nn.Module):
-    def __init__(self, F_g, F_l, F_int):
-        super(Attention_block, self).__init__()
-        self.W_g = nn.Sequential(
-            nn.Conv2d(F_g, F_int, kernel_size=1,
-                      stride=1, padding=0, bias=True),
-            nn.BatchNorm2d(F_int)
-        )
-
-        self.W_x = nn.Sequential(
-            nn.Conv2d(F_l, F_int, kernel_size=1,
-                      stride=1, padding=0, bias=True),
-            nn.BatchNorm2d(F_int)
-        )
-
-        self.psi = nn.Sequential(
-            nn.Conv2d(F_int, 1, kernel_size=1, stride=1, padding=0, bias=True),
-            nn.BatchNorm2d(1),
-            nn.Sigmoid()
-        )
-
-        self.relu = nn.ReLU(inplace=True)
-
-    def forward(self, g, x):
-        g1 = self.W_g(g)
-        x1 = self.W_x(x)
-        psi = self.relu(g1+x1)
-        psi = self.psi(psi)
-
-        return x*psi
-
-
-class conv_block_nested(nn.Module):
-    def __init__(self, in_ch, mid_ch, out_ch):
-        super(conv_block_nested, self).__init__()
-        self.activation = nn.ReLU(inplace=True)
-        self.conv1 = nn.Conv2d(
-            in_ch, mid_ch, kernel_size=3, padding=1, bias=True)
-        self.bn1 = nn.BatchNorm2d(mid_ch)
-        self.conv2 = nn.Conv2d(
-            mid_ch, out_ch, kernel_size=3, padding=1, bias=True)
-        self.bn2 = nn.BatchNorm2d(out_ch)
-
-    def forward(self, x):
-        x = self.conv1(x)
-        identity = x
-        x = self.bn1(x)
-        x = self.activation(x)
-
-        x = self.conv2(x)
-        x = self.bn2(x)
-        output = self.activation(x + identity)
-        return output
+        return x.view(x.shape[0], -1)
 
 
 class ChannelAttention(nn.Module):
-    def __init__(self, in_channels, ratio=16):
-        super(ChannelAttention, self).__init__()
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        self.max_pool = nn.AdaptiveMaxPool2d(1)
-        self.fc1 = nn.Conv2d(in_channels, in_channels//ratio, 1, bias=False)
-        self.relu1 = nn.ReLU()
-        self.fc2 = nn.Conv2d(in_channels//ratio, in_channels, 1, bias=False)
-        self.sigmod = nn.Sigmoid()
+    def __init__(self, channel, reduction=16, num_layers=3):
+        super().__init__()
+        self.avgpool = nn.AdaptiveAvgPool2d(1)
+        gate_channels = [channel]
+        gate_channels += [channel//reduction]*num_layers
+        gate_channels += [channel]
+
+        self.ca = nn.Sequential()
+        self.ca.add_module('flatten', Flatten())
+        for i in range(len(gate_channels)-2):
+            self.ca.add_module('fc%d' % i, nn.Linear(
+                gate_channels[i], gate_channels[i+1]))
+            self.ca.add_module('bn%d' % i, nn.BatchNorm1d(gate_channels[i+1]))
+            self.ca.add_module('relu%d' % i, nn.ReLU())
+        self.ca.add_module('last_fc', nn.Linear(
+            gate_channels[-2], gate_channels[-1]))
 
     def forward(self, x):
-        avg_out = self.fc2(self.relu1(self.fc1(self.avg_pool(x))))
-        max_out = self.fc2(self.relu1(self.fc1(self.max_pool(x))))
-        out = avg_out + max_out
-        return self.sigmod(out)
+        res = self.avgpool(x)
+        res = self.ca(res)
+        res = res.unsqueeze(-1).unsqueeze(-1).expand_as(x)
+        return res

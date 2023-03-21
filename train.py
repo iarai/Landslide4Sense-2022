@@ -12,12 +12,12 @@ from torch.utils import data
 import albumentations as A
 from torch.autograd import Variable
 
-from utils.metrics import *
-from utils.loss import SegmentationLosses
+from metrics.metrics import *
 from utils import Kpar
 from utils.helpers import import_name, get_size_dataset, split_fold, get_train_test_list
 from utils.saver import Saver
 from dataset.dataset import LandslideDataSet
+from losses import dice, focal, jaccard, lovasz, mcc, soft_bce, soft_ce, tversky
 
 
 def parse_args():
@@ -103,6 +103,9 @@ def parse_args():
     # configure validation
     parser.add_argument('--no_val', dest='no_val', type=bool, default=False,
                         help='not do validation')
+    
+    parser.add_argument('--loss', dest='loss', type=bool, default=False,
+                        help='loss function')
 
     return parser.parse_args()
 
@@ -123,6 +126,28 @@ train_transform = A.Compose(
         A.Rotate(),
     ]
 )
+
+
+def get_loss_function(args):
+    if args.loss == 'dice':
+        return dice.DiceLoss('multiclass')
+    elif args.loss == 'focal':
+        return focal.FocalLoss('multiclass')
+    elif args.loss == 'jaccard':
+        return jaccard.JaccardLoss('multiclass')
+    elif args.loss == 'lovasz':
+        return lovasz.LovaszLoss('multiclass')
+    elif args.loss == 'mcc':
+        return mcc.MCCLoss
+    elif args.loss == 'soft_bce':
+        return soft_bce.SoftBCEWithLogitsLoss
+    elif args.loss == 'soft_ce':
+        return soft_ce.SoftCrossEntropyLoss
+    elif args.loss == 'tversky':
+        return tversky.TverskyLoss('muticlass')
+    else:
+        raise ValueError("Choice of loss function")
+
 
 
 class Trainer(object):
@@ -160,7 +185,7 @@ class Trainer(object):
             opt = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0, weight_decay=args.weight_decay)
 
         # Define criterion
-        self.criterion = SegmentationLosses(weight=None, cuda=self.args.cuda).build_loss(mode='bce')
+        self.criterion = get_loss_function(args.loss)
 
         self.model = model
         self.optimizer = opt
@@ -301,7 +326,7 @@ def main():
         args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
 
     # Splitting k-fold
-    # split_fold(num_fold=args.k_fold, test_image_number=int(get_size_dataset('./data/img') / args.k_fold))
+    split_fold(num_fold=args.k_fold, test_image_number=int(get_size_dataset('./data/img') / args.k_fold))
 
     for fold in range(args.k_fold):
         print("\nTraining on fold %d" % fold)
