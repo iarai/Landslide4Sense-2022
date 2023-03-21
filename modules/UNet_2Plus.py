@@ -67,8 +67,8 @@ class UNet_2Plus(nn.Module):
         # self.final_3 = nn.Conv2d(filters[0], n_classes, 1)
         # self.final_4 = nn.Conv2d(filters[0], n_classes, 1)
 
-        self.ca = ChannelAttention(filters[0] * 4, ratio=16)
-        self.ca1 = ChannelAttention(filters[0], ratio=16 // 4)
+        self.ca = ChannelAttention(filters[0] * 4, 16)
+        self.ca1 = ChannelAttention(filters[0], 16 // 4)
 
         self.conv_final = nn.Conv2d(filters[0] * 4, n_classes, kernel_size=1)
 

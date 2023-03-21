@@ -209,11 +209,9 @@ class UNet_3Plus(nn.Module):
         self.relu1d_1 = nn.ReLU(inplace=True)
 
         # output
-        self.ca = ChannelAttention(
-            channel=filters[0] * 4, reduction=16, num_layers=3)
-        self.ca1 = ChannelAttention(
-            channel=filters[0], reduction=16 // 4, num_layers=3)
-
+        self.ca = ChannelAttention(filters[0] * 4, 16)
+        self.ca1 = ChannelAttention(filters[0], 16 // 4)
+        
         self.outconv1 = nn.Conv2d(filters[0] * 4, n_classes, kernel_size=1)
 
         # initialise weights

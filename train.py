@@ -72,7 +72,7 @@ def parse_args():
                         help="number of fold for k-fold.")
 
     # config optimization
-    parser.add_argument('--opt', dest='optimizer', type=str, default='adamax',
+    parser.add_argument('--optimizer', dest='optimizer', type=str, default='adamax',
                         help='training optimizer')
     parser.add_argument('--lr', dest='lr', type=float, default=1e-3,
                         help='starting learning rate')
