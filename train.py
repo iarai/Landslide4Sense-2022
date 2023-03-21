@@ -104,7 +104,7 @@ def parse_args():
     parser.add_argument('--no_val', dest='no_val', type=bool, default=False,
                         help='not do validation')
 
-    parser.add_argument('--loss', dest='loss', type=bool, default=False,
+    parser.add_argument('--loss_func', dest='loss_func', type=str, default='dice',
                         help='loss function')
 
     return parser.parse_args()
@@ -129,21 +129,21 @@ train_transform = A.Compose(
 
 
 def get_loss_function(args):
-    if args.loss == 'dice':
+    if args.loss_func == 'dice':
         return dice.DiceLoss('multiclass')
-    elif args.loss == 'focal':
+    elif args.loss_func == 'focal':
         return focal.FocalLoss('multiclass')
-    elif args.loss == 'jaccard':
+    elif args.loss_func == 'jaccard':
         return jaccard.JaccardLoss('multiclass')
-    elif args.loss == 'lovasz':
+    elif args.loss_func == 'lovasz':
         return lovasz.LovaszLoss('multiclass')
-    elif args.loss == 'mcc':
+    elif args.loss_func == 'mcc':
         return mcc.MCCLoss
-    elif args.loss == 'soft_bce':
+    elif args.loss_func == 'soft_bce':
         return soft_bce.SoftBCEWithLogitsLoss
-    elif args.loss == 'soft_ce':
+    elif args.loss_func == 'soft_ce':
         return soft_ce.SoftCrossEntropyLoss
-    elif args.loss == 'tversky':
+    elif args.loss_func == 'tversky':
         return tversky.TverskyLoss('muticlass')
     else:
         raise ValueError("Choice of loss function")
@@ -186,7 +186,7 @@ class Trainer(object):
                 model.parameters(), lr=args.lr, momentum=0, weight_decay=args.weight_decay)
 
         # Define criterion
-        self.criterion = get_loss_function(args.loss)
+        self.criterion = get_loss_function(self.args)
 
         self.model = model
         self.optimizer = opt
