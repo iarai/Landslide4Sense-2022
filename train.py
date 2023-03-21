@@ -132,7 +132,7 @@ def get_loss_function(args):
     if args.loss_func == 'dice':
         return dice.DiceLoss('multiclass')
     elif args.loss_func == 'focal':
-        return focal.FocalLoss('multiclass')
+        return focal.FocalLoss('multiclass', alpha=0.5, gamma=2.0)
     elif args.loss_func == 'jaccard':
         return jaccard.JaccardLoss('multiclass')
     elif args.loss_func == 'lovasz':
