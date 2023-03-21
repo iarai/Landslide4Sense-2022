@@ -103,7 +103,7 @@ def parse_args():
     # configure validation
     parser.add_argument('--no_val', dest='no_val', type=bool, default=False,
                         help='not do validation')
-    
+
     parser.add_argument('--loss', dest='loss', type=bool, default=False,
                         help='loss function')
 
@@ -149,7 +149,6 @@ def get_loss_function(args):
         raise ValueError("Choice of loss function")
 
 
-
 class Trainer(object):
     def __init__(self, args):
         self.args = args
@@ -170,26 +169,24 @@ class Trainer(object):
         # Define network
         model_import = import_name(args.model_module, args.model_name)
         model = model_import(n_classes=args.num_classes)
-        
 
         # Define Optimizer
         self.lr = self.args.lr
 
         if args.optimizer == 'adam':
             self.lr = self.lr * 0.1
-            opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+            opt = torch.optim.Adam(
+                model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
         elif args.optimizer == 'adamax':
             self.lr = self.lr * 0.1
-            opt = torch.optim.Adamax(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)        
+            opt = torch.optim.Adamax(
+                model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
         elif args.optimizer == 'sgd':
-            opt = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0, weight_decay=args.weight_decay)
+            opt = torch.optim.SGD(
+                model.parameters(), lr=args.lr, momentum=0, weight_decay=args.weight_decay)
 
         # Define criterion
-<<<<<<< HEAD
         self.criterion = get_loss_function(args.loss)
-=======
-        self.criterion = SegmentationLosses(weight=None, cuda=self.args.cuda).build_loss(mode='ce')
->>>>>>> fe1e2355a7a1a8777aa507ac0c8dcf6a4931f582
 
         self.model = model
         self.optimizer = opt
@@ -293,8 +290,8 @@ class Trainer(object):
 
         if new_pred > self.best_pred:
             print('\nEpoch %d: f1 improved from %0.5f to %0.5f' % (
-                    epoch + 1, self.best_pred, new_pred))
-            
+                epoch + 1, self.best_pred, new_pred))
+
             is_best = True
             self.best_pred = new_pred
             self.saver.save_checkpoint(
@@ -305,7 +302,9 @@ class Trainer(object):
                     'best_pred': self.best_pred
                 }, is_best)
         else:
-                print('\nEpoch %d: f1 (%.05f) did not improve from %0.5f' % (epoch + 1, new_pred, self.best_pred))
+            print('\nEpoch %d: f1 (%.05f) did not improve from %0.5f' %
+                  (epoch + 1, new_pred, self.best_pred))
+
 
 def main():
     args = parse_args()
@@ -320,17 +319,20 @@ def main():
         try:
             args.gpu_ids = [int(s) for s in args.gpu_ids.split(',')]
         except ValueError:
-            raise ValueError('Argument --gpu_ids must be a comma-separated list of integer only')
+            raise ValueError(
+                'Argument --gpu_ids must be a comma-separated list of integer only')
 
     if args.batch_size is None:
         args.batch_size = 4 * len(args.gpu_ids)
 
     if args.lr is None:
         lrs = {'Landslide4Sense': 0.01}
-        args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
+        args.lr = lrs[args.dataset.lower()] / \
+            (4 * len(args.gpu_ids)) * args.batch_size
 
     # Splitting k-fold
-    split_fold(num_fold=args.k_fold, test_image_number=int(get_size_dataset('./data/img') / args.k_fold))
+    split_fold(num_fold=args.k_fold, test_image_number=int(
+        get_size_dataset('./data/img') / args.k_fold))
 
     for fold in range(args.k_fold):
         print("\nTraining on fold %d" % fold)
@@ -348,10 +350,12 @@ def main():
         # Takes a local copy of the machine learning algorithm (modules) to avoid changing the one passed in
         trainer_ = cp.deepcopy(trainer)
 
-        train_per_epoch = np.ceil(get_size_dataset("./data/TrainData" + str(fold) + "/train/img/") / args.batch_size)
+        train_per_epoch = np.ceil(get_size_dataset(
+            "./data/TrainData" + str(fold) + "/train/img/") / args.batch_size)
 
         for epoch in range(trainer_.args.start_epoch, trainer_.args.epochs):
-            kbar = Kpar.Kbar(target=train_per_epoch, epoch=epoch, num_epochs=args.epochs, width=25, always_stateful=False)
+            kbar = Kpar.Kbar(target=train_per_epoch, epoch=epoch,
+                             num_epochs=args.epochs, width=25, always_stateful=False)
 
             trainer_.training(epoch, kbar)
             trainer_.validation(epoch, kbar)
