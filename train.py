@@ -18,6 +18,7 @@ from utils.helpers import import_name, get_size_dataset, split_fold, get_train_t
 from utils.saver import Saver
 from dataset.dataset import LandslideDataSet
 from losses import dice, focal, jaccard, lovasz, mcc, soft_bce, soft_ce, tversky
+from losses.hybrid import hybrid_loss
 
 
 def parse_args():
@@ -32,8 +33,8 @@ def parse_args():
 
     parser.add_argument("--model_module", type=str, default='modules',
                         help='model module to import')
-    parser.add_argument("--model_name", type=str, default='UNet',
-                        help='model name in given module: UNnet, R2UNet, Att_UNet, R2Att_UNet, NestedUNet, UNet_2Plus, UNet_3Plus, UNet_3Plus_DeepSup, UNet_3Plus_DeepSup_CGM')
+    parser.add_argument("--model_name", type=str, default='UNet_2Plus',
+                        help='model name in given module: UNet_2Plus, UNet_3Plus, UNet_3Plus_DeepSup, UNet_3Plus_DeepSup_CGM')
 
     parser.add_argument("--data_dir", type=str, default='./TrainData/',
                         help="dataset path.")
@@ -132,7 +133,7 @@ def get_loss_function(args):
     if args.loss_func == 'dice':
         return dice.DiceLoss('multiclass')
     elif args.loss_func == 'focal':
-        return focal.FocalLoss('multiclass', alpha=0.5, gamma=2.0)
+        return focal.FocalLoss('multiclass')
     elif args.loss_func == 'jaccard':
         return jaccard.JaccardLoss('multiclass')
     elif args.loss_func == 'lovasz':
@@ -145,6 +146,8 @@ def get_loss_function(args):
         return soft_ce.SoftCrossEntropyLoss
     elif args.loss_func == 'tversky':
         return tversky.TverskyLoss('muticlass')
+    elif args.loss_func == 'hybrid':
+        return hybrid_loss
     else:
         raise ValueError("Choice of loss function")
 
@@ -180,6 +183,10 @@ class Trainer(object):
         elif args.optimizer == 'adamax':
             self.lr = self.lr * 0.1
             opt = torch.optim.Adamax(
+                model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        elif args.optimizer == 'adamW':
+            self.lr = self.lr * 0.1
+            opt = torch.optim.AdamW(
                 model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
         elif args.optimizer == 'sgd':
             opt = torch.optim.SGD(
