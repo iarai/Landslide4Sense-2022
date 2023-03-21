@@ -301,7 +301,7 @@ def main():
         args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
 
     # Splitting k-fold
-    # split_fold(num_fold=args.k_fold, test_image_number=int(get_size_dataset('./data/img') / args.k_fold))
+    split_fold(num_fold=args.k_fold, test_image_number=int(get_size_dataset('./data/img') / args.k_fold))
 
     for fold in range(args.k_fold):
         print("\nTraining on fold %d" % fold)
