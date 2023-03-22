@@ -283,7 +283,7 @@ class Trainer(object):
 
         # Fast test during the training
         acc = self.evaluator.pixel_accuracy()
-        mIoU = self.evaluator.intersection_over_union()
+        mIoU = self.evaluator.mean_intersection_over_union()
         sen = self.evaluator.sensitivity()
         spec = self.evaluator.specificity()
         pre = self.evaluator.precision()
