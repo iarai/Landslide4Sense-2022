@@ -74,7 +74,7 @@ def parse_args():
 
     # config optimization
     parser.add_argument('--optimizer', dest='optimizer', type=str, default='adamax',
-                        help='training optimizer')
+                        help='training optimizer: adam, adamax, adamW, sgd')
     parser.add_argument('--lr', dest='lr', type=float, default=1e-3,
                         help='starting learning rate')
     parser.add_argument('--weight_decay', dest='weight_decay', type=float, default=1e-5,
