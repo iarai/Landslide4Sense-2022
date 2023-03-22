@@ -5,14 +5,14 @@ import torch.nn.functional as F
 import numpy as np
 from torchvision import models
 
-from modules.layers import unetConv2, unetUp_origin
+from modules.layers import unetConv2, unetUpCat_origin
 from modules.init_weights import init_weights
-from modules.layers import ChannelAttention, AttentionGate
+from modules.layers import ChannelAttention
 
 
 # L4 (https://pub.towardsai.net/unet-clearly-explained-a-better-image-segmentation-architecture-f48661c92df9)
 class UNet_2Plus(nn.Module):
-    def __init__(self, in_channels=14, n_classes=2, feature_scale=4, is_deconv=True, is_batchnorm=True, is_ds=True):
+    def __init__(self, in_channels=14, n_classes=2, feature_scale=2, is_deconv=True, is_batchnorm=True, is_ds=True):
         super(UNet_2Plus, self).__init__()
 
         self.is_deconv = is_deconv
@@ -22,7 +22,7 @@ class UNet_2Plus(nn.Module):
         self.feature_scale = feature_scale
 
         filters = [64, 128, 256, 512, 1024]
-        filters = [int(x / self.feature_scale) for x in filters]
+        # filters = [int(x / self.feature_scale) for x in filters]
 
         # downsampling
         self.conv00 = unetConv2(
@@ -41,40 +41,35 @@ class UNet_2Plus(nn.Module):
         self.conv40 = unetConv2(filters[3], filters[4], self.is_batchnorm)
 
         # upsampling
-        self.up_concat01 = unetUp_origin(
+        self.up_concat01 = unetUpCat_origin(
             filters[1], filters[0], self.is_deconv, 2)
-        self.up_concat11 = unetUp_origin(
+        self.up_concat11 = unetUpCat_origin(
             filters[2], filters[1], self.is_deconv, 2)
-        self.up_concat21 = unetUp_origin(
+        self.up_concat21 = unetUpCat_origin(
             filters[3], filters[2], self.is_deconv, 2)
-        self.up_concat31 = unetUp_origin(
+        self.up_concat31 = unetUpCat_origin(
             filters[4], filters[3], self.is_deconv, 2)
 
-        self.up_concat02 = unetUp_origin(
+        self.up_concat02 = unetUpCat_origin(
             filters[1], filters[0], self.is_deconv, 3)
-        self.up_concat12 = unetUp_origin(
+        self.up_concat12 = unetUpCat_origin(
             filters[2], filters[1], self.is_deconv, 3)
-        self.up_concat22 = unetUp_origin(
+        self.up_concat22 = unetUpCat_origin(
             filters[3], filters[2], self.is_deconv, 3)
 
-        self.up_concat03 = unetUp_origin(
+        self.up_concat03 = unetUpCat_origin(
             filters[1], filters[0], self.is_deconv, 4)
-        self.up_concat13 = unetUp_origin(
+        self.up_concat13 = unetUpCat_origin(
             filters[2], filters[1], self.is_deconv, 4)
 
-        self.up_concat04 = unetUp_origin(
+        self.up_concat04 = unetUpCat_origin(
             filters[1], filters[0], self.is_deconv, 5)
 
         # final conv (without any concat)
-        # self.final_1 = nn.Conv2d(filters[0], n_classes, 1)
-        # self.final_2 = nn.Conv2d(filters[0], n_classes, 1)
-        # self.final_3 = nn.Conv2d(filters[0], n_classes, 1)
-        # self.final_4 = nn.Conv2d(filters[0], n_classes, 1)
-
-        self.ca = ChannelAttention(filters[0] * 4, 16)
-        self.ca1 = ChannelAttention(filters[0], 16 // 4)
-
-        self.conv_final = nn.Conv2d(filters[0] * 4, n_classes, kernel_size=1)
+        self.final_1 = nn.Conv2d(filters[0], n_classes, 1)
+        self.final_2 = nn.Conv2d(filters[0], n_classes, 1)
+        self.final_3 = nn.Conv2d(filters[0], n_classes, 1)
+        self.final_4 = nn.Conv2d(filters[0], n_classes, 1)
 
         # initialise weights
         for m in self.modules():
@@ -85,65 +80,51 @@ class UNet_2Plus(nn.Module):
 
     def forward(self, inputs):
         # column : 0
-        X_00 = self.conv00(inputs)
-        maxpool0 = self.maxpool0(X_00)
-
-        X_10 = self.conv10(maxpool0)
-        maxpool1 = self.maxpool1(X_10)
-
-        X_20 = self.conv20(maxpool1)
-        maxpool2 = self.maxpool2(X_20)
-
-        X_30 = self.conv30(maxpool2)
-        maxpool3 = self.maxpool3(X_30)
-
-        X_40 = self.conv40(maxpool3)
+        X_00 = self.conv00(inputs)          # 64*128*128
+        maxpool0 = self.maxpool0(X_00)      # 64*64*64
+        X_10 = self.conv10(maxpool0)        # 128*64*64
+        maxpool1 = self.maxpool1(X_10)      # 128*32*32
+        X_20 = self.conv20(maxpool1)        # 256*32*32
+        maxpool2 = self.maxpool2(X_20)      # 256*16*16
+        X_30 = self.conv30(maxpool2)        # 512*16*16
+        maxpool3 = self.maxpool3(X_30)      # 512*8*8
+        X_40 = self.conv40(maxpool3)        # 1024*8*8
 
         # column : 1
-        X_01 = self.up_concat01(X_10, X_00)
-        X_11 = self.up_concat11(X_20, X_10)
-        X_21 = self.up_concat21(X_30, X_20)
-        X_31 = self.up_concat31(X_40, X_30)
+        X_01 = self.up_concat01(X_10, X_00)  # 64*128*128
+        X_11 = self.up_concat11(X_20, X_10)  # 128*64*64
+        X_21 = self.up_concat21(X_30, X_20)  # 256*32*32
+        X_31 = self.up_concat31(X_40, X_30)  # 512*16*16
 
         # column : 2
-        X_02 = self.up_concat02(X_11, X_00, X_01)
-        X_12 = self.up_concat12(X_21, X_10, X_11)
-        X_22 = self.up_concat22(X_31, X_20, X_21)
+        X_02 = self.up_concat02(X_11, X_00, X_01)  # 64*128*128
+        X_12 = self.up_concat12(X_21, X_10, X_11)  # 128*64*64
+        X_22 = self.up_concat22(X_31, X_20, X_21)  # 256*32*32
 
         # column : 3
-        X_03 = self.up_concat03(X_12, X_00, X_01, X_02)
-        X_13 = self.up_concat13(X_22, X_10, X_11, X_12)
+        X_03 = self.up_concat03(X_12, X_00, X_01, X_02)  # 64*128*128
+        X_13 = self.up_concat13(X_22, X_10, X_11, X_12)  # 128*64*64
 
         # column : 4
-        X_04 = self.up_concat04(X_13, X_00, X_01, X_02, X_03)
+        X_04 = self.up_concat04(X_13, X_00, X_01, X_02, X_03)  # 64*128*128
 
         # final layer
-        # final_1 = self.final_1(X_01)
-        # final_2 = self.final_2(X_02)
-        # final_3 = self.final_3(X_03)
-        # final_4 = self.final_4(X_04)
+        final_1 = self.final_1(X_01)
+        final_2 = self.final_2(X_02)
+        final_3 = self.final_3(X_03)
+        final_4 = self.final_4(X_04)
 
-        # final = (final_1 + final_2 + final_3 + final_4) / 4
+        final = (final_1 + final_2 + final_3 + final_4) / 4
 
-        # if self.is_ds:
-        #     return final
-        # else:
-        #     return final_4
-
-        out = torch.cat([X_01, X_02, X_03, X_04], 1)
-
-        intra = torch.sum(torch.stack((X_01, X_02, X_03, X_04)), dim=0)
-        ca1 = self.ca1(intra)
-        out = self.ca(out) * (out + ca1.repeat(1, 4, 1, 1))
-        out = self.conv_final(out)
-
-        return out
+        if self.is_ds:
+            return final
+        else:
+            return final_4
 
 
-# L4 (https://pub.towardsai.net/unet-clearly-explained-a-better-image-segmentation-architecture-f48661c92df9)
-class UNet_2Plus_Att(nn.Module):
-    def __init__(self, in_channels=14, n_classes=2, feature_scale=4, is_deconv=True, is_batchnorm=True, is_ds=True):
-        super(UNet_2Plus_Att, self).__init__()
+class UNet_2Plus_CBAM(nn.Module):
+    def __init__(self, in_channels=14, n_classes=2, feature_scale=2, is_deconv=True, is_batchnorm=True, is_ds=True):
+        super(UNet_2Plus_CBAM, self).__init__()
 
         self.is_deconv = is_deconv
         self.in_channels = in_channels
@@ -152,7 +133,7 @@ class UNet_2Plus_Att(nn.Module):
         self.feature_scale = feature_scale
 
         filters = [64, 128, 256, 512, 1024]
-        filters = [int(x / self.feature_scale) for x in filters]
+        # filters = [int(x / self.feature_scale) for x in filters]
 
         # downsampling
         self.conv00 = unetConv2(
@@ -170,51 +151,30 @@ class UNet_2Plus_Att(nn.Module):
 
         self.conv40 = unetConv2(filters[3], filters[4], self.is_batchnorm)
 
-        self.Att40 = AttentionGate(
-            F_g=filters[3], F_l=filters[4], F_int=filters[3])
-
         # upsampling
-        self.up_concat01 = unetUp_origin(
-            filters[1], filters[0], self.is_deconv)
-        self.up_concat11 = unetUp_origin(
-            filters[2], filters[1], self.is_deconv)
-        self.up_concat21 = unetUp_origin(
-            filters[3], filters[2], self.is_deconv)
+        self.up_concat01 = unetUpCat_origin(
+            filters[1], filters[0], self.is_deconv, 2)
+        self.up_concat11 = unetUpCat_origin(
+            filters[2], filters[1], self.is_deconv, 2)
+        self.up_concat21 = unetUpCat_origin(
+            filters[3], filters[2], self.is_deconv, 2)
+        self.up_concat31 = unetUpCat_origin(
+            filters[4], filters[3], self.is_deconv, 2)
 
-        self.Att21 = AttentionGate(
-            F_g=filters[2], F_l=filters[2], F_int=filters[2])
-
-        self.up_concat31 = unetUp_origin(
-            filters[4], filters[3], self.is_deconv)
-
-        self.up_concat02 = unetUp_origin(
+        self.up_concat02 = unetUpCat_origin(
             filters[1], filters[0], self.is_deconv, 3)
-        self.up_concat12 = unetUp_origin(
+        self.up_concat12 = unetUpCat_origin(
             filters[2], filters[1], self.is_deconv, 3)
-
-        self.Att12 = AttentionGate(
-            F_g=filters[1], F_l=filters[1], F_int=filters[1])
-
-        self.up_concat22 = unetUp_origin(
+        self.up_concat22 = unetUpCat_origin(
             filters[3], filters[2], self.is_deconv, 3)
 
-        self.up_concat03 = unetUp_origin(
+        self.up_concat03 = unetUpCat_origin(
             filters[1], filters[0], self.is_deconv, 4)
-
-        self.Att03 = AttentionGate(
-            F_g=filters[0], F_l=filters[0], F_int=filters[0])
-
-        self.up_concat13 = unetUp_origin(
+        self.up_concat13 = unetUpCat_origin(
             filters[2], filters[1], self.is_deconv, 4)
 
-        self.up_concat04 = unetUp_origin(
+        self.up_concat04 = unetUpCat_origin(
             filters[1], filters[0], self.is_deconv, 5)
-
-        # final conv (without any concat)
-        # self.final_1 = nn.Conv2d(filters[0], n_classes, 1)
-        # self.final_2 = nn.Conv2d(filters[0], n_classes, 1)
-        # self.final_3 = nn.Conv2d(filters[0], n_classes, 1)
-        # self.final_4 = nn.Conv2d(filters[0], n_classes, 1)
 
         self.ca = ChannelAttention(filters[0] * 4, 16)
         self.ca1 = ChannelAttention(filters[0], 16 // 4)
@@ -230,55 +190,35 @@ class UNet_2Plus_Att(nn.Module):
 
     def forward(self, inputs):
         # column : 0
-        X_00 = self.conv00(inputs)
-        maxpool0 = self.maxpool0(X_00)
-
-        X_10 = self.conv10(maxpool0)
-        maxpool1 = self.maxpool1(X_10)
-
-        X_20 = self.conv20(maxpool1)
-        maxpool2 = self.maxpool2(X_20)
-
-        X_30 = self.conv30(maxpool2)
-        maxpool3 = self.maxpool3(X_30)
-
-        X_40 = self.conv40(maxpool3)
+        X_00 = self.conv00(inputs)          # 64*128*128
+        maxpool0 = self.maxpool0(X_00)      # 64*64*64
+        X_10 = self.conv10(maxpool0)        # 128*64*64
+        maxpool1 = self.maxpool1(X_10)      # 128*32*32
+        X_20 = self.conv20(maxpool1)        # 256*32*32
+        maxpool2 = self.maxpool2(X_20)      # 256*16*16
+        X_30 = self.conv30(maxpool2)        # 512*16*16
+        maxpool3 = self.maxpool3(X_30)      # 512*8*8
+        X_40 = self.conv40(maxpool3)        # 1024*8*8
 
         # column : 1
-        X_01 = self.up_concat01(X_10, X_00)
-        X_11 = self.up_concat11(X_20, X_10)
-        X_21 = self.up_concat21(X_30, X_20)
-        X_30 = self.Att40(g=X_30, x=X_40)
-        X_31 = self.up_concat31(X_40, X_30)
+        X_01 = self.up_concat01(X_10, X_00)  # 64*128*128
+        X_11 = self.up_concat11(X_20, X_10)  # 128*64*64
+        X_21 = self.up_concat21(X_30, X_20)  # 256*32*32
+        X_31 = self.up_concat31(X_40, X_30)  # 512*16*16
 
         # column : 2
-        X_02 = self.up_concat02(X_11, X_00, X_01)
-        X_12 = self.up_concat12(X_21, X_10, X_11)
-        X_20 = self.Att21(g=X_20, x=X_21)
-        X_22 = self.up_concat22(X_31, X_20, X_21)
+        X_02 = self.up_concat02(X_11, X_00, X_01)  # 64*128*128
+        X_12 = self.up_concat12(X_21, X_10, X_11)  # 128*64*64
+        X_22 = self.up_concat22(X_31, X_20, X_21)  # 256*32*32
 
         # column : 3
-        X_03 = self.up_concat03(X_12, X_00, X_01, X_02)
-        X_10 = self.Att12(g=X_10, x=X_12)
-        X_13 = self.up_concat13(X_22, X_10, X_12)
+        X_03 = self.up_concat03(X_12, X_00, X_01, X_02)  # 64*128*128
+        X_13 = self.up_concat13(X_22, X_10, X_11, X_12)  # 128*64*64
 
         # column : 4
-        X_00 = self.Att03(g=X_00, x=X_03)
-        X_04 = self.up_concat04(X_13, X_00)
+        X_04 = self.up_concat04(X_13, X_00, X_01, X_02, X_03)  # 64*128*128
 
         # final layer
-        # final_1 = self.final_1(X_01)
-        # final_2 = self.final_2(X_02)
-        # final_3 = self.final_3(X_03)
-        # final_4 = self.final_4(X_04)
-
-        # final = (final_1 + final_2 + final_3 + final_4) / 4
-
-        # if self.is_ds:
-        #     return final
-        # else:
-        #     return final_4
-
         out = torch.cat([X_01, X_02, X_03, X_04], 1)
 
         intra = torch.sum(torch.stack((X_01, X_02, X_03, X_04)), dim=0)

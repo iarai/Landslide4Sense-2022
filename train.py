@@ -211,7 +211,7 @@ class Trainer(object):
             self.model = self.model.cuda()
 
         # Resuming checkpoint
-        self.best_pred = -np.Inf
+        self.f1_best_pred = -np.Inf
         self.lr_stage = [20, 40, 60, 80]
         self.lr_stage_ind = 0
 
@@ -261,7 +261,7 @@ class Trainer(object):
         self.evaluator.reset()
         val_loss = 0.0
 
-        for batch_id, batch in enumerate(self.test_loader):
+        for _, batch in enumerate(self.test_loader):
             image, target, _, _ = batch
 
             if self.args.cuda:
@@ -281,36 +281,39 @@ class Trainer(object):
 
         # Fast test during the training
         acc = self.evaluator.pixel_accuracy()
-        acc_class = self.evaluator.pixel_accuracy_class()
-        mIoU = self.evaluator.mean_intersection_over_union()
-        fwIoU = self.evaluator.frequency_weighted_intersection_over_union()
-        p = self.evaluator.precision()
-        r = self.evaluator.recall()
+        mIoU = self.evaluator.intersection_over_union()
+        sen = self.evaluator.sensitivity()
+        spec = self.evaluator.specificity()
+        pre = self.evaluator.precision()
+        rec = self.evaluator.recall()
         f1 = self.evaluator.f1()
+        dice = self.evaluator.dice()
+        jac = self.evaluator.jaccard_index()
 
-        kbar.add(1, values=[("val_loss", val_loss), ("val_acc", acc),
-                            ('acc_class', acc_class), ('mIoU', mIoU),
-                            ('fwIoU', fwIoU), ('precision', p[1]),
-                            ('recall', r[1]), ('f1', f1[1])])
+        kbar.add(1, values=[("val_loss", val_loss), ("Acc", acc[1]), ("mIoU", mIoU),
+                            ('sensitivity', sen[1]),
+                            ('specificity', spec[1]), ('dice',
+                                                       dice[1]), ('jaccard', jac[1]),
+                            ('precision', pre[1]), ('recall', rec[1]), ('f1', f1[1])])
 
-        new_pred = f1[1]
+        new_f1_pred = f1[1]
 
-        if new_pred > self.best_pred:
+        if new_f1_pred > self.f1_best_pred:
             print('\nEpoch %d: f1 improved from %0.5f to %0.5f' % (
-                epoch + 1, self.best_pred, new_pred))
+                epoch + 1, self.f1_best_pred, new_f1_pred))
 
             is_best = True
-            self.best_pred = new_pred
+            self.f1_best_pred = new_f1_pred
             self.saver.save_checkpoint(
                 {
                     'epoch': epoch + 1,
                     'state_dict': self.model.state_dict(),
                     'optimizer': self.optimizer.state_dict(),
-                    'best_pred': self.best_pred
+                    'best_pred': self.f1_best_pred
                 }, is_best)
         else:
             print('\nEpoch %d: f1 (%.05f) did not improve from %0.5f' %
-                  (epoch + 1, new_pred, self.best_pred))
+                  (epoch + 1, new_f1_pred, self.f1_best_pred))
 
 
 def main():
