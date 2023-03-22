@@ -44,6 +44,25 @@ class unetConv2(nn.Module):
         return x
 
 
+class unetConv2_block(nn.Module):
+    def __init__(self, in_size, out_size):
+        super(unetConv2_block, self).__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_size, out_size, kernel_size=3,
+                      stride=1, padding=1, bias=True),
+            nn.BatchNorm2d(out_size),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_size, out_size, kernel_size=3,
+                      stride=1, padding=1, bias=True),
+            nn.BatchNorm2d(out_size),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        x = self.conv(x)
+        return x
+
+
 class unetUp(nn.Module):
     def __init__(self, in_size, out_size):
         super(unetUp, self).__init__()

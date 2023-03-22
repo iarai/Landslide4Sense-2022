@@ -20,6 +20,8 @@ from dataset.dataset import LandslideDataSet
 from losses import dice, focal, jaccard, lovasz, mcc, soft_bce, soft_ce, tversky
 from losses.hybrid import hybrid_loss
 
+# from modules.UNet import UNet_CBAM
+
 
 def parse_args():
     """Parse all the arguments provided from the CLI.
@@ -33,8 +35,8 @@ def parse_args():
 
     parser.add_argument("--model_module", type=str, default='modules',
                         help='model module to import')
-    parser.add_argument("--model_name", type=str, default='UNet_2Plus',
-                        help='model name in given module: UNet_2Plus, UNet_2Plus_Att, UNet_3Plus')
+    parser.add_argument("--model_name", type=str, default='UNet_2Plus_CBAM',
+                        help='model name in given module: UNet, UNet_Att, UNet_2Plus, UNet_2Plus_CBAM, UNet_3Plus, UNet_3Plus_CBAM')
 
     parser.add_argument("--data_dir", type=str, default='./TrainData/',
                         help="dataset path.")
@@ -170,8 +172,8 @@ class Trainer(object):
                                            num_workers=args.num_workers, pin_memory=True)
 
         # Define network
-        model_import = import_name(args.model_module, args.model_name)
-        model = model_import(n_classes=args.num_classes)
+        model_import = import_name(self.args.model_module, self.args.model_name)
+        model = model_import(n_classes=self.args.num_classes)        
 
         # Define Optimizer
         self.lr = self.args.lr
@@ -341,8 +343,8 @@ def main():
             (4 * len(args.gpu_ids)) * args.batch_size
 
     # Splitting k-fold
-    split_fold(num_fold=args.k_fold, test_image_number=int(
-        get_size_dataset('./data/img') / args.k_fold))
+    # split_fold(num_fold=args.k_fold, test_image_number=int(
+    #     get_size_dataset('./data/img') / args.k_fold))
 
     for fold in range(args.k_fold):
         print("\nTraining on fold %d" % fold)

@@ -5,9 +5,8 @@ import torch.nn.functional as F
 import numpy as np
 from torchvision import models
 
-from modules.layers import unetConv2, unetUpCat_origin
+from modules.layers import unetConv2, unetUpCat_origin, ChannelAttention
 from modules.init_weights import init_weights
-from modules.layers import ChannelAttention
 
 
 # L4 (https://pub.towardsai.net/unet-clearly-explained-a-better-image-segmentation-architecture-f48661c92df9)

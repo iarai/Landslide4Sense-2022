@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from layers import unetConv2, unetUp, unetUpCat, unetGateAttention
-from init_weights import init_weights
+from modules.layers import unetConv2, unetConv2_block, unetUp, unetUpCat, unetGateAttention, ChannelAttention
+from modules.init_weights import init_weights
 
 
 class UNet(nn.Module):
@@ -69,52 +68,52 @@ class UNet(nn.Module):
 
         d1 = self.outconv1(up1)                 # 256
 
-        return F.sigmoid(d1)
+        return torch.sigmoid(d1)
 
 
 class UNet_Att(nn.Module):
-    def __init__(self, in_channels=14, n_classes=2, feature_scale=4, is_deconv=True, is_batchnorm=True):
+    def __init__(self, in_channels=14, n_classes=2, feature_scale=4):
         super(UNet_Att, self).__init__()
-        self.is_deconv = is_deconv
         self.in_channels = in_channels
-        self.is_batchnorm = is_batchnorm
+        self.n_classes = n_classes
         self.feature_scale = feature_scale
 
         filters = [64, 128, 256, 512, 1024]
         # filters = [int(x / self.feature_scale) for x in filters]
 
         # downsampling
-        self.conv1 = unetConv2(self.in_channels, filters[0], self.is_batchnorm)
-        self.maxpool1 = nn.MaxPool2d(kernel_size=2)
+        self.conv1 = unetConv2_block(self.in_channels, filters[0])
+        self.maxpool1 = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.conv2 = unetConv2(filters[0], filters[1], self.is_batchnorm)
-        self.maxpool2 = nn.MaxPool2d(kernel_size=2)
+        self.conv2 = unetConv2_block(filters[0], filters[1])
+        self.maxpool2 = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.conv3 = unetConv2(filters[1], filters[2], self.is_batchnorm)
-        self.maxpool3 = nn.MaxPool2d(kernel_size=2)
+        self.conv3 = unetConv2_block(filters[1], filters[2])
+        self.maxpool3 = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.conv4 = unetConv2(filters[2], filters[3], self.is_batchnorm)
-        self.maxpool4 = nn.MaxPool2d(kernel_size=2)
+        self.conv4 = unetConv2_block(filters[2], filters[3])
+        self.maxpool4 = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.conv5 = unetConv2(filters[3], filters[4], self.is_batchnorm)
+        self.conv5 = unetConv2_block(filters[3], filters[4])
 
+        # upsampling
         self.up5 = unetUp(filters[4], filters[3])
         self.att5 = unetGateAttention(filters[3], filters[3], filters[2])
-        self.up_conv5 = unetUpCat(filters[4], filters[3], self.is_deconv)
+        self.up_conv5 = unetConv2_block(filters[4], filters[3])
 
         self.up4 = unetUp(filters[3], filters[2])
         self.att4 = unetGateAttention(filters[2], filters[2], filters[1])
-        self.up_conv4 = unetUpCat(filters[3], filters[2])
+        self.up_conv4 = unetConv2_block(filters[3], filters[2])
 
         self.up3 = unetUp(filters[2], filters[1])
         self.att3 = unetGateAttention(filters[1], filters[1], filters[0])
-        self.up_conv3 = unetUpCat(filters[2], filters[1])
+        self.up_conv3 = unetConv2_block(filters[2], filters[1])
 
         self.up2 = unetUp(filters[1], filters[0])
         self.att2 = unetGateAttention(filters[0], filters[0], 32)
-        self.up_conv2 = unetUpCat(filters[1], filters[0])
+        self.up_conv2 = unetConv2_block(filters[1], filters[0])
 
-        self.conv_1x1 = nn.Conv2d(64, n_classes, 1, 1, 0)
+        self.conv_1x1 = nn.Conv2d(64, self.n_classes, 1, 1, 0)
 
     def forward(self, x):
         # encoding path
@@ -135,20 +134,25 @@ class UNet_Att(nn.Module):
         # decoding + concat path
         d5 = self.up5(x5)
         x4 = self.att5(d5, x4)
+        d5 = torch.cat((x4, d5), dim=1)
         d5 = self.up_conv5(d5)
 
         d4 = self.up4(d5)
         x3 = self.att4(d4, x3)
+        d4 = torch.cat((x3, d4), dim=1)
         d4 = self.up_conv4(d4)
 
         d3 = self.up3(d4)
         x2 = self.att3(d3, x2)
+        d3 = torch.cat((x2, d3), dim=1)
         d3 = self.up_conv3(d3)
 
         d2 = self.up2(d3)
         x1 = self.att2(d2, x=x1)
+        d2 = torch.cat((x1, d2), dim=1)
         d2 = self.up_conv2(d2)
 
-        d1 = self.conv_1x1(d2)
+        # final layer
+        out = self.conv_1x1(d2)
 
-        return d1
+        return out
