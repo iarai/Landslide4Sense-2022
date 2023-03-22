@@ -14,6 +14,7 @@ class unetConv2(nn.Module):
         self.padding = padding
         s = stride
         p = padding
+
         if is_batchnorm:
             for i in range(1, n + 1):
                 conv = nn.Sequential(nn.Conv2d(in_size, out_size, ks, s, p),
@@ -45,7 +46,7 @@ class unetConv2(nn.Module):
 class unetUp_origin(nn.Module):
     def __init__(self, in_size, out_size, is_deconv, n_concat=2):
         super(unetUp_origin, self).__init__()
-        # self.conv = unetConv2(out_size*2, out_size, False)
+
         if is_deconv:
             self.conv = unetConv2(in_size + (n_concat - 2)
                                   * out_size, out_size, False)
@@ -63,12 +64,47 @@ class unetUp_origin(nn.Module):
             init_weights(m, init_type='kaiming')
 
     def forward(self, inputs0, *input):
-        # print(self.n_concat)
-        # print(input)
         outputs0 = self.up(inputs0)
+
         for i in range(len(input)):
             outputs0 = torch.cat([outputs0, input[i]], 1)
         return self.conv(outputs0)
+
+
+class AttentionGate(nn.Module):
+    """
+    filter the features propagated through the skip connections
+    """
+
+    def __init__(self, F_g, F_l, F_int):
+        super(AttentionGate, self).__init__()
+        self.W_g = nn.Sequential(
+            nn.Conv2d(F_g, F_int, kernel_size=1,
+                      stride=1, padding=0, bias=True),
+            nn.BatchNorm2d(F_int)
+        )
+
+        self.W_x = nn.Sequential(
+            nn.Conv2d(F_l, F_int, kernel_size=1,
+                      stride=1, padding=0, bias=True),
+            nn.BatchNorm2d(F_int)
+        )
+
+        self.psi = nn.Sequential(
+            nn.Conv2d(F_int, 1, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.BatchNorm2d(1),
+            nn.Sigmoid()
+        )
+
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, g, x):
+        g1 = self.W_g(g)
+        x1 = self.W_x(x)
+        psi = self.relu(g1+x1)
+        psi = self.psi(psi)
+
+        return x*psi
 
 
 # BAM
