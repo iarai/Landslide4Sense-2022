@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import numpy as np
 from torchvision import models
 
-from modules.layers import unetConv2, unetUpCat_origin, ChannelAttention, SpatialGate
+from modules.layers import unetConv2, unetUpCat_origin, ChannelAttention
 from modules.init_weights import init_weights
 
 
@@ -175,8 +175,8 @@ class UNet_2Plus_CBAM(nn.Module):
         self.up_concat04 = unetUpCat_origin(
             filters[1], filters[0], self.is_deconv, 5)
 
-        self.ca = SpatialGate(filters[0] * 4, 16)
-        self.ca1 = SpatialGate(filters[0], 16 // 4)
+        self.ca = ChannelAttention(filters[0] * 4, 16)
+        self.ca1 = ChannelAttention(filters[0], 16 // 4)
 
         self.conv_final = nn.Conv2d(filters[0] * 4, n_classes, kernel_size=1)
 
