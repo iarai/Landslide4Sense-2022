@@ -10,23 +10,31 @@ class Evaluator(object):
         self.num_class = num_class
         self.confusion_matrix = np.zeros((self.num_class,) * 2)
 
+    def get_tp_fp_tn_fn(self):
+        tp = np.diag(self.confusion_matrix)
+        fp = np.sum(self.confusion_matrix, axis=0) - tp
+        fn = np.sum(self.confusion_matrix, axis=1) - tp
+        tn = self.confusion_matrix.sum() - (fp + fn + tp)
+        return tp, fp, tn, fn
+
     def pixel_accuracy(self):
         """The ratio of correctly classified pixels to all pixels
         Returns:
             acc = (TP + TN) / (TP + TN + FP + TN)
         """
-        acc = np.diag(self.confusion_matrix).sum() / self.confusion_matrix.sum()
-        return acc
+        tp, fp, tn, fn = self.get_tp_fp_tn_fn()
+        score = (tp + tn) / (tp + tn + fp + fn + 1e-7)
+        return score
 
     def pixel_accuracy_class(self):
         """Calculate the ratio of the correctly classified pixels of each class to
         all the pixels of that class and then calculate the average
         Returns:
-            acc = (TP) / TP + FP
+            acc = TP / (TP + FP)
         """
-        acc = np.diag(self.confusion_matrix) / self.confusion_matrix.sum(axis=1)
-        acc = np.nanmean(acc)
-        return acc
+        tp, fp, _, _ = self.get_tp_fp_tn_fn()
+        score = tp / (tp + fp + 1e-7)
+        return score
 
     def mean_intersection_over_union(self):
         """Calculate the IoU of each category and then average (Intersection and Union ratio).
@@ -34,13 +42,20 @@ class Evaluator(object):
         The IoU calculated based on the class is accumulated after the IoU calculation of each class,
         and then averaged, and the obtained is the global evaluation mIoU.
         Returns:
-            mIoU
+            mIoU = mean(tp / (tp + fp + fn))
         """
-        mIoU = np.diag(self.confusion_matrix) / (
-                np.sum(self.confusion_matrix, axis=1) + np.sum(self.confusion_matrix, axis=0) -
-                np.diag(self.confusion_matrix))
-        mIoU = np.nanmean(mIoU)
-        return mIoU
+        tp, fp, _, fn = self.get_tp_fp_tn_fn()
+        score = np.nanmean(tp / (tp + fp + fn + 1e-7))
+        return score
+    
+    def jaccard_index(self):
+        """Also known as the intersection_over_union.
+        Returns:
+            IoU = tp / (tp + fp + fn)
+        """
+        tp, fp, _, fn = self.get_tp_fp_tn_fn()
+        score = tp / (tp + fp + fn + 1e-7)
+        return score
 
     def frequency_weighted_intersection_over_union(self):
         """It is understood that the weighted summation of the iou of each category is performed according
@@ -48,31 +63,98 @@ class Evaluator(object):
         Returns:
             fwIOU = [(TP+FN)/(TP+FP+TN+FN)] * [TP / (TP + FP + FN)]
         """
-        freq = np.sum(self.confusion_matrix, axis=1) / np.sum(self.confusion_matrix)
-        iu = np.diag(self.confusion_matrix) / (
-                np.sum(self.confusion_matrix, axis=1) + np.sum(self.confusion_matrix, axis=0) -
-                np.diag(self.confusion_matrix))
-
-        fwIoU = (freq[freq > 0] * iu[freq > 0]).sum()
-        return fwIoU
+        tp, fp, tn, fn = self.get_tp_fp_tn_fn()
+        freq = (tp + fn) / (tp + fp + tn + fn)
+        iu = tp / (tp + fp + fn)
+        score = (freq[freq > 0] * iu[freq > 0]).sum()
+        return score
 
     def precision(self):
-        tp = np.diag(self.confusion_matrix)
-        fp = np.sum(self.confusion_matrix, axis=0) - tp
-        return tp / (tp + fp + 1e-7)
+        tp, fp, _, _ = self.get_tp_fp_tn_fn()
+        score = tp / (tp + fp + 1e-7)
+        return score
 
     def recall(self):
-        tp = np.diag(self.confusion_matrix)
-        fn = np.sum(self.confusion_matrix, axis=1) - tp
-        return tp / (tp + fn + 1e-7)
+        tp, _, _, fn = self.get_tp_fp_tn_fn()
+        score = tp / (tp + fn + 1e-7)
+        return score
 
     def f1(self):
-        tp = np.diag(self.confusion_matrix)
-        fp = np.sum(self.confusion_matrix, axis=0) - tp
-        fn = np.sum(self.confusion_matrix, axis=1) - tp
+        tp, fp, _, fn = self.get_tp_fp_tn_fn()
         precision = tp / (tp + fp + 1e-7)
         recall = tp / (tp + fn + 1e-7)
-        return (2.0 * precision * recall) / (precision + recall + 1e-7)
+        score = (2.0 * precision * recall) / (precision + recall + 1e-7)
+        return score
+    
+    def dice(self):
+        tp, fp, _, fn = self.get_tp_fp_tn_fn()
+        score = 2*tp / (2*tp + fp + fn + 1e-7)
+        return score
+
+    def mcc(self):
+        tp, fp, tn, fn = self.get_tp_fp_tn_fn()
+        num = tp*tn - fp*fn
+        den = np.sqrt((tp+fn)*(tp+fp)*(tn+fn)*(tn+fp))
+        score = num / (den + 1e-7)
+        return score
+    
+    def sensitivity(self):
+        tp, _, _, fn = self.get_tp_fp_tn_fn()
+        score = tp / (tp + fn + 1e-7)
+        return score
+
+    def specificity(self):
+        _, fp, tn, _ = self.get_tp_fp_tn_fn()
+        score = tn / (tn + fp + 1e-7)
+        return score
+    
+    def fbeta(self, beta=1):
+        self.beta = beta
+
+        tp, fp, _, fn = self.get_tp_fp_tn_fn()
+        beta_tp = (1 + self.beta**2) * tp
+        beta_fn = (self.beta**2) * fn
+        score = beta_tp / (beta_tp + beta_fn + fp + 1e-7)
+        return score
+
+    def balanced_accuracy(self):
+        score = (self.sensitivity() + self.specificity()) / 2
+        return score
+
+    def positive_predictive_value(self):
+        tp, fp, _, _ = self.get_tp_fp_tn_fn()
+        score = tp / (tp + fp + 1e-7)
+        return score
+
+    def negative_predictive_value(self):
+        _, _, tn, fn = self.get_tp_fp_tn_fn()
+        score = tn / (tn + fn + 1e-7)
+        return score
+
+    def false_negative_rate(self):
+        tp, _, _, fn = self.get_tp_fp_tn_fn()
+        return fn / (fn + tp)
+
+    def false_positive_rate(self):
+        _, fp, tn, _ = self.get_tp_fp_tn_fn()
+        score = fp / (fp + tn + 1e-7)
+        return score
+
+    def false_discovery_rate(self):
+        score = 1 - self.positive_predictive_value()
+        return score
+
+    def false_omission_rate(self):
+        score = 1 - self.negative_predictive_value()
+        return score
+
+    def positive_likelihood_ratio(self):
+        socre = self.sensitivity() / (self.false_positive_rate() + 1e-7)
+        return socre
+
+    def negative_likelihood_ratio(self):
+        score = self.false_negative_rate() / (self.specificity())
+        return score    
 
     def _generate_matrix(self, gt_image, pre_image):
         """confusion matrix
@@ -90,7 +172,8 @@ class Evaluator(object):
     def add_batch(self, gt_image, pre_image):
         assert gt_image.shape == pre_image.shape
         for lp, lt in zip(pre_image, gt_image):
-            self.confusion_matrix += self._generate_matrix(lt.flatten(), lp.flatten())
+            self.confusion_matrix += self._generate_matrix(
+                lt.flatten(), lp.flatten())
 
     def reset(self):
         self.confusion_matrix = np.zeros((self.num_class,) * 2)

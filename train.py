@@ -20,6 +20,8 @@ from dataset.dataset import LandslideDataSet
 from losses import dice, focal, jaccard, lovasz, mcc, soft_bce, soft_ce, tversky
 from losses.hybrid import hybrid_loss
 
+# from modules.UNet import UNet_CBAM
+
 
 def parse_args():
     """Parse all the arguments provided from the CLI.
@@ -33,8 +35,8 @@ def parse_args():
 
     parser.add_argument("--model_module", type=str, default='modules',
                         help='model module to import')
-    parser.add_argument("--model_name", type=str, default='UNet_2Plus',
-                        help='model name in given module: UNet_2Plus, UNet_3Plus')
+    parser.add_argument("--model_name", type=str, default='ResUNet_2Plus',
+                        help='model name in given module: UNet, UNet_Att, UNet_2Plus, UNet_2Plus_CBAM, UNet_3Plus, UNet_3Plus_CBAM, ResUNet_2Plus')
 
     parser.add_argument("--data_dir", type=str, default='./TrainData/',
                         help="dataset path.")
@@ -74,7 +76,7 @@ def parse_args():
 
     # config optimization
     parser.add_argument('--optimizer', dest='optimizer', type=str, default='adamax',
-                        help='training optimizer')
+                        help='training optimizer: adam, adamax, adamW, sgd')
     parser.add_argument('--lr', dest='lr', type=float, default=1e-3,
                         help='starting learning rate')
     parser.add_argument('--weight_decay', dest='weight_decay', type=float, default=1e-5,
@@ -138,14 +140,8 @@ def get_loss_function(args):
         return jaccard.JaccardLoss('multiclass')
     elif args.loss_func == 'lovasz':
         return lovasz.LovaszLoss('multiclass')
-    elif args.loss_func == 'mcc':
-        return mcc.MCCLoss
-    elif args.loss_func == 'soft_bce':
-        return soft_bce.SoftBCEWithLogitsLoss
-    elif args.loss_func == 'soft_ce':
-        return soft_ce.SoftCrossEntropyLoss
     elif args.loss_func == 'tversky':
-        return tversky.TverskyLoss('muticlass')
+        return tversky.TverskyLoss('multiclass')
     elif args.loss_func == 'hybrid':
         return hybrid_loss
     else:
@@ -170,8 +166,8 @@ class Trainer(object):
                                            num_workers=args.num_workers, pin_memory=True)
 
         # Define network
-        model_import = import_name(args.model_module, args.model_name)
-        model = model_import(n_classes=args.num_classes)
+        model_import = import_name(self.args.model_module, self.args.model_name)
+        model = model_import(n_classes=self.args.num_classes)        
 
         # Define Optimizer
         self.lr = self.args.lr
@@ -211,7 +207,7 @@ class Trainer(object):
             self.model = self.model.cuda()
 
         # Resuming checkpoint
-        self.best_pred = -np.Inf
+        self.f1_best_pred = -np.Inf
         self.lr_stage = [20, 40, 60, 80]
         self.lr_stage_ind = 0
 
@@ -261,7 +257,7 @@ class Trainer(object):
         self.evaluator.reset()
         val_loss = 0.0
 
-        for batch_id, batch in enumerate(self.test_loader):
+        for _, batch in enumerate(self.test_loader):
             image, target, _, _ = batch
 
             if self.args.cuda:
@@ -281,36 +277,39 @@ class Trainer(object):
 
         # Fast test during the training
         acc = self.evaluator.pixel_accuracy()
-        acc_class = self.evaluator.pixel_accuracy_class()
         mIoU = self.evaluator.mean_intersection_over_union()
-        fwIoU = self.evaluator.frequency_weighted_intersection_over_union()
-        p = self.evaluator.precision()
-        r = self.evaluator.recall()
+        sen = self.evaluator.sensitivity()
+        spec = self.evaluator.specificity()
+        pre = self.evaluator.precision()
+        rec = self.evaluator.recall()
         f1 = self.evaluator.f1()
+        dice = self.evaluator.dice()
+        jac = self.evaluator.jaccard_index()
 
-        kbar.add(1, values=[("val_loss", val_loss), ("val_acc", acc),
-                            ('acc_class', acc_class), ('mIoU', mIoU),
-                            ('fwIoU', fwIoU), ('precision', p[1]),
-                            ('recall', r[1]), ('f1', f1[1])])
+        kbar.add(1, values=[("val_loss", val_loss), ("Acc", acc[1]), ("mIoU", mIoU),
+                            ('sensitivity', sen[1]),
+                            ('specificity', spec[1]), ('dice',
+                                                       dice[1]), ('jaccard', jac[1]),
+                            ('precision', pre[1]), ('recall', rec[1]), ('f1', f1[1])])
 
-        new_pred = f1[1]
+        new_f1_pred = f1[1]
 
-        if new_pred > self.best_pred:
+        if new_f1_pred > self.f1_best_pred:
             print('\nEpoch %d: f1 improved from %0.5f to %0.5f' % (
-                epoch + 1, self.best_pred, new_pred))
+                epoch + 1, self.f1_best_pred, new_f1_pred))
 
             is_best = True
-            self.best_pred = new_pred
+            self.f1_best_pred = new_f1_pred
             self.saver.save_checkpoint(
                 {
                     'epoch': epoch + 1,
                     'state_dict': self.model.state_dict(),
                     'optimizer': self.optimizer.state_dict(),
-                    'best_pred': self.best_pred
+                    'best_pred': self.f1_best_pred
                 }, is_best)
         else:
             print('\nEpoch %d: f1 (%.05f) did not improve from %0.5f' %
-                  (epoch + 1, new_pred, self.best_pred))
+                  (epoch + 1, new_f1_pred, self.f1_best_pred))
 
 
 def main():
