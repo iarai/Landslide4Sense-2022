@@ -7,7 +7,7 @@ from torchvision import models
 
 from modules.layers import unetConv2, unetUp_origin
 from modules.init_weights import init_weights
-from modules.layers import ChannelAttention
+from modules.layers import ChannelAttention, Attention_block
 
 
 # L4 (https://pub.towardsai.net/unet-clearly-explained-a-better-image-segmentation-architecture-f48661c92df9)
@@ -22,18 +22,22 @@ class UNet_2Plus(nn.Module):
         self.feature_scale = feature_scale
 
         filters = [64, 128, 256, 512, 1024]
-        # filters = [int(x / self.feature_scale) for x in filters]
+        filters = [int(x / self.feature_scale) for x in filters]
 
         # downsampling
         self.conv00 = unetConv2(
             self.in_channels, filters[0], self.is_batchnorm)
         self.maxpool0 = nn.MaxPool2d(kernel_size=2)
+
         self.conv10 = unetConv2(filters[0], filters[1], self.is_batchnorm)
         self.maxpool1 = nn.MaxPool2d(kernel_size=2)
+
         self.conv20 = unetConv2(filters[1], filters[2], self.is_batchnorm)
         self.maxpool2 = nn.MaxPool2d(kernel_size=2)
+
         self.conv30 = unetConv2(filters[2], filters[3], self.is_batchnorm)
         self.maxpool3 = nn.MaxPool2d(kernel_size=2)
+
         self.conv40 = unetConv2(filters[3], filters[4], self.is_batchnorm)
 
         # upsampling
@@ -83,12 +87,16 @@ class UNet_2Plus(nn.Module):
         # column : 0
         X_00 = self.conv00(inputs)
         maxpool0 = self.maxpool0(X_00)
+
         X_10 = self.conv10(maxpool0)
         maxpool1 = self.maxpool1(X_10)
+
         X_20 = self.conv20(maxpool1)
         maxpool2 = self.maxpool2(X_20)
+
         X_30 = self.conv30(maxpool2)
         maxpool3 = self.maxpool3(X_30)
+
         X_40 = self.conv40(maxpool3)
 
         # column : 1
@@ -130,3 +138,5 @@ class UNet_2Plus(nn.Module):
         out = self.conv_final(out)
 
         return out
+
+
