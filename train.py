@@ -140,14 +140,8 @@ def get_loss_function(args):
         return jaccard.JaccardLoss('multiclass')
     elif args.loss_func == 'lovasz':
         return lovasz.LovaszLoss('multiclass')
-    elif args.loss_func == 'mcc':
-        return mcc.MCCLoss
-    elif args.loss_func == 'soft_bce':
-        return soft_bce.SoftBCEWithLogitsLoss
-    elif args.loss_func == 'soft_ce':
-        return soft_ce.SoftCrossEntropyLoss
     elif args.loss_func == 'tversky':
-        return tversky.TverskyLoss('muticlass')
+        return tversky.TverskyLoss('multiclass')
     elif args.loss_func == 'hybrid':
         return hybrid_loss
     else:
