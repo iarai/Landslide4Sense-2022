@@ -7,10 +7,7 @@ from torchvision import models
 
 from modules.layers import unetConv2, unetUpCat_origin, ChannelAttention
 from modules.init_weights import init_weights
-<<<<<<< HEAD
 from modules.layers import ChannelAttention, Attention_block
-=======
->>>>>>> 2f60042981d41a11ba7615dd52a772cdcad6445b
 
 
 # L4 (https://pub.towardsai.net/unet-clearly-explained-a-better-image-segmentation-architecture-f48661c92df9)
@@ -193,7 +190,6 @@ class UNet_2Plus_CBAM(nn.Module):
 
     def forward(self, inputs):
         # column : 0
-<<<<<<< HEAD
         X_00 = self.conv00(inputs)
         maxpool0 = self.maxpool0(X_00)
 
@@ -207,17 +203,6 @@ class UNet_2Plus_CBAM(nn.Module):
         maxpool3 = self.maxpool3(X_30)
 
         X_40 = self.conv40(maxpool3)
-=======
-        X_00 = self.conv00(inputs)          # 64*128*128
-        maxpool0 = self.maxpool0(X_00)      # 64*64*64
-        X_10 = self.conv10(maxpool0)        # 128*64*64
-        maxpool1 = self.maxpool1(X_10)      # 128*32*32
-        X_20 = self.conv20(maxpool1)        # 256*32*32
-        maxpool2 = self.maxpool2(X_20)      # 256*16*16
-        X_30 = self.conv30(maxpool2)        # 512*16*16
-        maxpool3 = self.maxpool3(X_30)      # 512*8*8
-        X_40 = self.conv40(maxpool3)        # 1024*8*8
->>>>>>> 2f60042981d41a11ba7615dd52a772cdcad6445b
 
         # column : 1
         X_01 = self.up_concat01(X_10, X_00)  # 64*128*128
@@ -246,5 +231,3 @@ class UNet_2Plus_CBAM(nn.Module):
         out = self.conv_final(out)
 
         return out
-
-

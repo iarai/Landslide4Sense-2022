@@ -106,11 +106,7 @@ class unetUpCat(nn.Module):
 
 class unetUpCat_origin(nn.Module):
     def __init__(self, in_size, out_size, is_deconv, n_concat=2):
-<<<<<<< HEAD
-        super(unetUp_origin, self).__init__()
-=======
         super(unetUpCat_origin, self).__init__()
->>>>>>> 2f60042981d41a11ba7615dd52a772cdcad6445b
 
         if is_deconv:
             self.conv = unetConv2(in_size + (n_concat - 2)
@@ -136,21 +132,9 @@ class unetUpCat_origin(nn.Module):
         return self.conv(outputs0)
 
 
-<<<<<<< HEAD
 class Attention_block(nn.Module):
-    def __init__(self,F_g,F_l,F_int):
-        super(Attention_block,self).__init__()
-        self.W_g = nn.Sequential(
-            nn.Conv2d(F_g, F_int, kernel_size=1,stride=1,padding=0,bias=True),
-            nn.BatchNorm2d(F_int)
-            )
-        
-        self.W_x = nn.Sequential(
-            nn.Conv2d(F_l, F_int, kernel_size=1,stride=1,padding=0,bias=True),
-=======
-class unetGateAttention(nn.Module):
     def __init__(self, F_g, F_l, F_int):
-        super(unetGateAttention, self).__init__()
+        super(Attention_block, self).__init__()
         self.W_g = nn.Sequential(
             nn.Conv2d(F_g, F_int, kernel_size=1,
                       stride=1, padding=0, bias=True),
@@ -160,21 +144,10 @@ class unetGateAttention(nn.Module):
         self.W_x = nn.Sequential(
             nn.Conv2d(F_l, F_int, kernel_size=1,
                       stride=1, padding=0, bias=True),
->>>>>>> 2f60042981d41a11ba7615dd52a772cdcad6445b
             nn.BatchNorm2d(F_int)
         )
 
         self.psi = nn.Sequential(
-<<<<<<< HEAD
-            nn.Conv2d(F_int, 1, kernel_size=1,stride=1,padding=0,bias=True),
-            nn.BatchNorm2d(1),
-            nn.Sigmoid()
-        )
-        
-        self.relu = nn.ReLU(inplace=True)
-        
-    def forward(self,g,x):
-=======
             nn.Conv2d(F_int, 1, kernel_size=1, stride=1, padding=0, bias=True),
             nn.BatchNorm2d(1),
             nn.Sigmoid()
@@ -183,22 +156,18 @@ class unetGateAttention(nn.Module):
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, g, x):
->>>>>>> 2f60042981d41a11ba7615dd52a772cdcad6445b
         g1 = self.W_g(g)
         x1 = self.W_x(x)
         psi = self.relu(g1+x1)
         psi = self.psi(psi)
 
         return x*psi
-<<<<<<< HEAD
 
 
 # BAM
 class Flatten(nn.Module):
     def forward(self, x):
         return x.view(x.shape[0], -1)
-=======
->>>>>>> 2f60042981d41a11ba7615dd52a772cdcad6445b
 
 
 # CBAM
