@@ -164,24 +164,38 @@ class Decoder_Block(nn.Module):
 
 
 class ResUNet_2Plus(nn.Module):
-    def __init__(self, in_channels=14, n_classes=2, ):
+    def __init__(self, in_channels=14, n_classes=2):
         super(ResUNet_2Plus, self).__init__()
         self.in_channels = in_channels
         self.n_classes = n_classes
 
-        self.c1 = Stem_Block(self.in_channels, 16, stride=1)
-        self.c2 = ResNet_Block(16, 32, stride=2)
-        self.c3 = ResNet_Block(32, 64, stride=2)
-        self.c4 = ResNet_Block(64, 128, stride=2)
+        # self.c1 = Stem_Block(self.in_channels, 16, stride=1)
+        # self.c2 = ResNet_Block(16, 32, stride=2)
+        # self.c3 = ResNet_Block(32, 64, stride=2)
+        # self.c4 = ResNet_Block(64, 128, stride=2)
 
-        self.b1 = ASPP(128, 256)
+        # self.b1 = ASPP(128, 256)
 
-        self.d1 = Decoder_Block([64, 256], 128)
-        self.d2 = Decoder_Block([32, 128], 64)
-        self.d3 = Decoder_Block([16, 64], 32)
+        # self.d1 = Decoder_Block([64, 256], 128)
+        # self.d2 = Decoder_Block([32, 128], 64)
+        # self.d3 = Decoder_Block([16, 64], 32)
 
-        self.aspp = ASPP(32, 16)
-        self.output = nn.Conv2d(16, self.n_classes, kernel_size=1, padding=0)
+        # self.aspp = ASPP(32, 16)
+        # self.output = nn.Conv2d(16, self.n_classes, kernel_size=1, padding=0)
+
+        self.c1 = Stem_Block(self.in_channels, 32, stride=1)
+        self.c2 = ResNet_Block(32, 64, stride=2)
+        self.c3 = ResNet_Block(64, 128, stride=2)
+        self.c4 = ResNet_Block(128, 256, stride=2)
+
+        self.b1 = ASPP(256, 512)
+
+        self.d1 = Decoder_Block([128, 512], 256)
+        self.d2 = Decoder_Block([64, 256], 128)
+        self.d3 = Decoder_Block([32, 128], 64)
+
+        self.aspp = ASPP(64, 32)
+        self.output = nn.Conv2d(32, self.n_classes, kernel_size=1, padding=0)
 
     def forward(self, inputs):
         c1 = self.c1(inputs)
