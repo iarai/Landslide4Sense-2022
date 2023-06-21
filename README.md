@@ -241,5 +241,13 @@ A: To access the [competition forum](https://www.iarai.ac.at/landslide4sense/for
 Please cite the following paper if you use the data or the codes: 
 
 ```
-@article{tbd}
+@article{L4S-2022,
+  author={Ghorbanzadeh, Omid and Xu, Yonghao and Zhao, Hengwei and Wang, Junjue and Zhong, Yanfei and Zhao, Dong and Zang, Qi and Wang, Shuang and Zhang, Fahong and Shi, Yilei and Zhu, Xiao Xiang and Bai, Lin and Li, Weile and Peng, Weihang and Ghamisi, Pedram},
+  journal={IEEE Journal of Selected Topics in Applied Earth Observations and Remote Sensing},
+  title={The Outcome of the 2022 Landslide4Sense Competition: Advanced Landslide Detection From Multisource Satellite Imagery},
+  year={2022},
+  volume={15},
+  number={},
+  pages={9927-9942},
+  doi={10.1109/JSTARS.2022.3220845}}
 ```
